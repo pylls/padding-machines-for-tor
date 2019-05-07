@@ -20,7 +20,7 @@ The project has three phases:
 
 All development will take place here in the open. The goal is to finish the
 first phase in time for [PETS 2019](https://www.petsymposium.org/2019/) in
-Stockholm July 16-20, to interact with other researchers.
+Stockholm July 16-20, to interact with other researchers and Tor developers.
 
 ## Acknowledgements
 This project is made possible thanks to a generous grant from the [NGI Zero PET](https://nlnet.nl/PET/) 
