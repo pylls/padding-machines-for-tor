@@ -28,5 +28,5 @@ project, that in turn is made possible with financial support from the
 [European Commission's](https://ec.europa.eu/) [Next Generation Internet](https://www.ngi.eu/) 
 programme, under the aegis of 
 [DG Communications Networks, Content and Technology](https://ec.europa.eu/info/departments/communications-networks-content-and-technology_en).
-[Computer Science](https://www.kau.se/en/cs) at [Karlstad University](https://www.kau.se/en) 
-is also providing co-financing of administrative costs and equipment. 
+Co-financing (for administrative costs and equipment) is provided by 
+[Computer Science](https://www.kau.se/en/cs) at [Karlstad University](https://www.kau.se/en). 
