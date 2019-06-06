@@ -22,14 +22,21 @@ ap.add_argument("-n", required=True, type=int,
     help="number of samples")
 ap.add_argument("-r", required=True,
     help="shared folder for storing results")
+ap.add_argument("-g", required=True, 
+    help="IP address of guard")
 
-ap.add_argument("-a", required=False, default=5,
+ap.add_argument("-a", required=False, default=5, type=int,
     help="number of attempts to collect each trace")
-ap.add_argument("-t", required=False, default=60,
+ap.add_argument("-t", required=False, default=60, type=int,
     help="timeout (s) for each TB visit")
+ap.add_argument("-i", required=False, default="eth0",
+    help="network interface to capture from")
+ap.add_argument("-s", required=False, default=68, type=int,
+    help="snaplen to capture")
 args = vars(ap.parse_args())
 
-resultsfmt = "{}-{}.pcap"
+RESULTSFMT = "{}-{}.pcap"
+TSHARKFMT = "tshark -i {} -f \"host {}\" -s {} -a duration:{} -w {} -F libpcap"
 
 def main():
     print("reading Alexa site list {}".format(args["l"]))
@@ -46,19 +53,20 @@ def main():
         random.shuffle(alexa)
         for index, site in alexa:
             # only attempt to collect if not already collected
-            if not os.path.isfile(resultsfmt.format(index, n)):
+            if not os.path.isfile(RESULTSFMT.format(index, n)):
                 collect(index, site, n)
 
 def collect(index, site, sample):
     print("collect index {}, site {}, sample {}".format(index, site, sample))
     #subprocess.call("./visit.sh {} {}".format(site, sample), shell=True)
+    fname = RESULTSFMT.format(index, sample)
 
     for a in range(args["a"]):
         if a % 2 == 0:
             site = togglewww(site)
         
         # start network capture in new thread
-        t = threading.Thread(target=getpcap)
+        t = threading.Thread(target=capture, args=(fname,))
         t.start()
 
         # fixme: sleep briefly, giving the thread time to start
@@ -71,10 +79,8 @@ def collect(index, site, sample):
         # if capture was successful, break
         # FIXME: check based on filesize (?), set constant
 
-def getpcap():
-    print("hello from thread")
-    # FIXME: turns out pyshark is buggy, probably better to base on tshark?
-    # tshark -i enp30s0 -f "host 192.168.1.x" -s 68 -a duration:5 -w example.pcap -F libpcap
+def capture(fname):
+    print(TSHARKFMT.format(args["i"], args["g"], args["s"], args["t"], fname))
 
 def togglewww(site):
     if site.startswith("www."):
