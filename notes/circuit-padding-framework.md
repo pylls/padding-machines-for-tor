@@ -1,9 +1,9 @@
 # Tor's Circuit Padding Framework 
 Notes taken when reading through Tor's circuit padding framework, starting from
-tag `tor-0.4.1.1-alpha` at https://gitweb.torproject.org/tor.git/.
+tag `tor-0.4.1.3-alpha` at https://gitweb.torproject.org/tor.git/.
 
 Important files added largely for the circuit padding framework:
-- `src/core/or/circuitpadding.{h,c}`, 1916 lines of code and 1421 lines of comments.
+- `src/core/or/circuitpadding.{h,c}`, 1916 lines of code and 1420 lines of comments.
 - `src/core/or/circuitpadding_machines.{h,c}`, 185 lines of code and 232 lines of comments.
 - `src/lib/math/prob_distr.{h,c}`, 658 lines of code and 1099 lines of comments. 
 
