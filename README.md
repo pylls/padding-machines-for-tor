@@ -9,7 +9,7 @@ The padding machines should defend against
 The project has three phases:
 
 1. Figure out the details of circuit padding as implemented in Tor and setup
-   necessarry infrastructure for collecting WF datasets with and without padding
+   necessary infrastructure for collecting WF datasets with and without padding
    machines.
 2. Iteratively, design-implement-evaluate padding machines in the search of
    effective and/or efficient designs. Machines are _effective_ if they can
