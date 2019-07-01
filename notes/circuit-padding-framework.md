@@ -12,8 +12,57 @@ comparison, the `src/core/crypto` directory consists of 1389 lines of code (sans
 libraries for primitives). 
 
 ## What is a "Machine"?
+Before we can define a machine we need to define some of the context in which
+the machine operates. The machine is part of the _circuit_ padding framework in
+Tor, and a circuit is the core construct in Tor for building connections between
+relays. Circuits have different _purposes_ depending on on their intended use,
+e.g., as part of onion services or for general purpose use. Constants for the
+different purposes are found in `src/core/or/circuitlist.h`. TCP streams are
+multiplexed inside a circuit as part of a _stream_, and typical operation of tor
+involves the frequent connection of both circuits and streams, just like regular
+TCP streams. 
 
-Placeholder
+So what is a machine? A machine is a state machine that exists _per circuit_,
+hence being a ciruit padding framework. The goal of a machine is to inject (pad)
+dummy traffic with different goals in mind, such as hiding from a passive
+network adversary that the purpose of a circuit is for the purpose of use with
+onion services.
+
+A machine is only created on a circuit if specific _conditions_ are met, as shown below:
+
+```c
+typedef struct circpad_machine_conditions_t {
+  /** Only apply the machine *if* the circuit has at least this many hops */
+  unsigned min_hops : 3;
+
+  /** Only apply the machine *if* vanguards are enabled */
+  unsigned requires_vanguards : 1;
+
+  /**
+   * This machine is ok to use if reduced padding is set in consensus
+   * or torrc. This machine will still be applied even if reduced padding
+   * is not set; this flag only acts to exclude machines that don't have
+   * it set when reduced padding is requested. Therefore, reduced padding
+   * machines should appear at the lowest priority in the padding machine
+   * lists (aka first in the list), so that non-reduced padding machines
+   * for the same purpose are given a chance to apply when reduced padding
+   * is not requested. */
+  unsigned reduced_padding_ok : 1;
+
+  /** Only apply the machine *if* the circuit's state matches any of
+   *  the bits set in this bitmask. */
+  circpad_circuit_state_t state_mask;
+
+  /** Only apply a machine *if* the circuit's purpose matches one
+   *  of the bits set in this bitmask */
+  circpad_purpose_mask_t purpose_mask;
+
+} circpad_machine_conditions_t;
+```
+
+Here, `purpose_mask` encodes the purpose of the ciruit discussed earlier, and
+`state_mask` covers the state of the circuit itself:
+
 ```c
 typedef enum {
   /* Only apply machine if the circuit is still building */
@@ -31,6 +80,17 @@ typedef enum {
   CIRCPAD_CIRC_HAS_NO_RELAY_EARLY = 1<<5
 } circpad_circuit_state_t;
 ```
+
+...
+
+To sample delays and/or number of padding cells to send, machines can use:
+- histograms with removal
+- distributions
+
+...
+State split into immutable and mutable parts: mutable per circuit, immutable
+once per machine. Immutable is `circpad_state_t`, mutable
+`circpad_machine_runtime_t`.
 
 ## Current Machines
 In `circuitpadding_machines.c` we find two machines that adds padding with the
