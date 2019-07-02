@@ -30,6 +30,10 @@ streams are multiplexed inside a circuit as part of a _stream_, and typical
 operation of tor involves the frequent connection of both circuits and streams,
 just like regular TCP streams. 
 
+There are two types of circuits at a relay: either an origin circuit or an or
+circuit. An origin circuit is created at the relay itself, while a or circuit is
+a circuit that the relay acts as an onion router for. 
+
 ## What is a "Machine"?
 A machine is a state machine that exists _per circuit_, hence a "circuit padding
 framework". A padding machine injects fake (padding) cells with different
@@ -50,10 +54,81 @@ circuit, one `circpad_machine_runtime_t` consists mutable data, such as the
 current state of the machine on the circuit. 
 
 ### Details on `circpad_machine_spec_t`
+Below is the full struct:
 
-#### Conditions for Being Active
-A machine is only active on a circuit if specific _conditions_ are
-met, as shown below:
+```c
+typedef struct circpad_machine_spec_t {
+  /* Just a user-friendly machine name for logs */
+  const char *name;
+
+  /** Global machine number */
+  circpad_machine_num_t machine_num;
+
+  /** Which machine index slot should this machine go into in
+   *  the array on the circuit_t */
+  unsigned machine_index : 1;
+
+  /** Send a padding negotiate to shut down machine at end state? */
+  unsigned should_negotiate_end : 1;
+
+  // These next three fields are origin machine-only...
+  /** Origin side or relay side */
+  unsigned is_origin_side : 1;
+
+  /** Which hop in the circuit should we send padding to/from?
+   *  1-indexed (ie: hop #1 is guard, #2 middle, #3 exit). */
+  unsigned target_hopnum : 3;
+
+  /** If this flag is enabled, don't close circuits that use this machine even
+   *  if another part of Tor wants to close this circuit.
+   *
+   *  If this flag is set, the circuitpadding subsystem will close circuits the
+   *  moment the machine transitions to the END state, and only if the circuit
+   *  has already been asked to be closed by another part of Tor.
+   *
+   *  Circuits that should have been closed but were kept open by a padding
+   *  machine are re-purposed to CIRCUIT_PURPOSE_C_CIRCUIT_PADDING, hence
+   *  machines should take that purpose into account if they are filtering
+   *  circuits by purpose. */
+  unsigned manage_circ_lifetime : 1;
+
+  /** This machine only kills fascists if the following conditions are met. */
+  circpad_machine_conditions_t conditions;
+
+  /** How many padding cells can be sent before we apply overhead limits?
+   * XXX: Note that we can only allow up to 64k of padding cells on an
+   * otherwise quiet circuit. Is this enough? It's 33MB. */
+  uint16_t allowed_padding_count;
+
+  /** Padding percent cap: Stop padding if we exceed this percent overhead.
+   * 0 means no limit. Overhead is defined as percent of total traffic, so
+   * that we can use 0..100 here. This is the same definition as used in
+   * Prop#265. */
+  uint8_t max_padding_percent;
+
+  /** State array: indexed by circpad_statenum_t */
+  circpad_state_t *states;
+
+  /**
+   * Number of states this machine has (ie: length of the states array).
+   * XXX: This field is not needed other than for safety. */
+  circpad_statenum_t num_states;
+} circpad_machine_spec_t;
+```
+Most fields are self explanatory (but a lot to consider) and we see that care
+has been taken to be able to prevent machines from flooding the network with
+padding. `machine_index` is as simple as it sounds, currently tor has a
+hardcoded array of size `CIRCPAD_MAX_MACHINES`, set to 2. Adding a new machine
+will require changes to this. In the future, the plan is to support having
+machines defined in torrc and from the consensus, but currently code is missing
+for this. 
+
+For understanding the framework, the most important fields are `conditions` and
+`states`. Note that `states` is an array of states with a maximum size of
+`CIRCPAD_STATENUM_MAX`, currently `UINT16_MAX`. We cover how a state is defined
+in the next section, but first, we look closer here at `conditions`. Simply put,
+a machine is only active on a circuit if specific _conditions_ are met, as shown
+below:
 
 ```c
 typedef struct circpad_machine_conditions_t {
@@ -85,8 +160,8 @@ typedef struct circpad_machine_conditions_t {
 } circpad_machine_conditions_t;
 ```
 
-The purpose of the circuit is encoded is `purpose_mask`, as discussed earlier,
-and `state_mask` covers the state of the circuit:
+The purpose of the circuit is encoded as a `purpose_mask` (we covered purposes
+briefly in the background) and `state_mask` covers the state of the circuit:
 
 ```c
 typedef enum {
@@ -106,17 +181,17 @@ typedef enum {
 } circpad_circuit_state_t;
 ```
 This allows us quite some control over when a machine should be active on a
-circuit.
+circuit, important both for creating machines with a specific goal and
+performance.
 
 ### Details on `circpad_state_t`
+On a high-level:
+- IAT histogram or probability distribution
+- length probability distribution (with min,max parameters)
+- circpad_statenum_t next_state[CIRCPAD_NUM_EVENTS]
+- unsigned use_rtt_estimate : 1;
 
-To sample delays machines can use:
-- histograms with or without token removal, or 
-- probability distributions.
-
-...
-
-- We can transition due to events, can we also transition for other reasons?
+((- We can transition due to events, can we also transition for other reasons?))
 
 #### Histograms
 A [histogram](https://en.wikipedia.org/wiki/Histogram) is an estimation of a
