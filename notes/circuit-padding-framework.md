@@ -185,13 +185,27 @@ circuit, important both for creating machines with a specific goal and
 performance.
 
 ### Details on `circpad_state_t`
-On a high-level:
-- IAT histogram or probability distribution
-- length probability distribution (with min,max parameters)
-- circpad_statenum_t next_state[CIRCPAD_NUM_EVENTS]
+On a high-level, each state consists of:
+- an IAT histogram or probability distribution
+- a length (in terms of number of sent (padding) cells) probability distribution
+  with min-max parameters
+- an array of _events_ that cause a _transition_ from the current state to
+  the same or another state.
 - unsigned use_rtt_estimate : 1;
-
 ((- We can transition due to events, can we also transition for other reasons?))
+
+The IAT histogram/distribution is used by `circpad_machine_sample_delay()` to
+sample a delay (in microseconds) for scheduling a padding cell. There are a wide
+range of considerations for the choice of histogram or probability destribution,
+far beyond the scope of these notes. Below we provide further details on
+possible options supported by the framework. 
+
+The probability distribution for sampling a length: the number of sent (total or
+padding) cells while in this state, used by `circpad_choose_state_length()`.
+Note: does _not_ resample length when you transition to the same state, feature
+or bug?
+
+`circpad_machine_spec_transition()` for transitions. 
 
 #### Histograms
 A [histogram](https://en.wikipedia.org/wiki/Histogram) is an estimation of a
