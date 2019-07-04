@@ -217,7 +217,9 @@ The probability distribution for sampling a length: the maximum number of sent
 (total or padding) cells while in this state, used by
 `circpad_choose_state_length()`. [Note: does _not_ resample length when you
 transition to the same state, feature or bug? Appears to be feature, since
-internal states like `CIRCPAD_EVENT_LENGTH_COUNT` also cause a transition.]
+internal states like `CIRCPAD_EVENT_LENGTH_COUNT` also cause a transition.] When
+the length is reached, no more padding will be sent, and an event will be
+triggered that may trigger a transition.
 
 The array of events that cause a transition are defined as follows:
 ```c
@@ -277,6 +279,45 @@ there are exactly seven calls in tor's source to cause a transition, one for
 each even above. Note that the comment for `CIRCPAD_EVENT_LENGTH_COUNT` is
 wrong, the event is triggered when the state has used up its cell count (the
 sampled length in state as described above). [TODO: write pull request.]
+
+Finally, it is worth to note is that there are some hardcoded states that are
+used internally in the framework:
+```c
+/**
+ * End is a pseudo-state that causes the machine to go completely
+ * idle, and optionally get torn down (depending on the
+ * value of circpad_machine_spec_t.should_negotiate_end)
+ *
+ * End MUST NOT occupy a slot in the machine state array.
+ */
+#define  CIRCPAD_STATE_END         CIRCPAD_STATENUM_MAX
+
+/**
+ * "Ignore" is a pseudo-state that means "do not react to this
+ * event".
+ *
+ * "Ignore" MUST NOT occupy a slot in the machine state array.
+ */
+#define  CIRCPAD_STATE_IGNORE         (CIRCPAD_STATENUM_MAX-1)
+
+/**
+ * "Cancel" is a pseudo-state that means "cancel pending timers,
+ * but remain in your current state".
+ *
+ * Cancel MUST NOT occupy a slot in the machine state array.
+ */
+#define  CIRCPAD_STATE_CANCEL         (CIRCPAD_STATENUM_MAX-2)
+
+/**
+ * Since we have 3 pseudo-states, the max state array length is
+ * up to one less than cancel's statenum.
+ */
+#define CIRCPAD_MAX_MACHINE_STATES  (CIRCPAD_STATE_CANCEL-1)
+```
+When the states of a machine is initalized using
+`circpad_machine_states_init()`, for every state and every possible event that
+can cause a transition, `CIRCPAD_STATE_IGNORE` is set as the default state,
+i.e., do nothing. 
 
 #### Histograms
 A [histogram](https://en.wikipedia.org/wiki/Histogram) is an estimation of a
@@ -463,7 +504,77 @@ The distribution for IAT is selected for a machine as part of the immutable
 ```
 
 ### Details on `circpad_machine_runtime_t`
+The runtime struct contains a number of variables for internal bookkeeping
+related to timers, the current state, histogram (if used), amount of padding
+sent, etc. This is all transparent from what I can tell right now when creating
+machines. Worth to note when creating custom machines is that the struct ends
+with the following:
 
+```c
+typedef struct circpad_machine_runtime_t {
+  ....
+/** Max number of padding machines on each circuit. If changed,
+ * also ensure the machine_index bitwith supports the new size. */
+#define CIRCPAD_MAX_MACHINES    (2)
+  /** Which padding machine index was this for.
+   * (make sure changes to the bitwidth can support the
+   * CIRCPAD_MAX_MACHINES define). */
+  unsigned machine_index : 1;
+} circpad_machine_runtime_t;
+```
+
+### Misc notes
+I found the below defines confusing at first, they're only used for a test right
+now, and would make sense for an explicit WTF PAD machine as part of
+`src/core/or/circuitpadding_machines.{h,c}`, not the framework itself.
+
+```c
+/**
+ * The start state for this machine.
+ *
+ * In the original WTF-PAD, this is only used for transition to/from
+ * the burst state. All other fields are not used. But to simplify the
+ * code we've made it a first-class state. This has no performance
+ * consequences, but may make naive serialization of the state machine
+ * large, if we're not careful about how we represent empty fields.
+ */
+#define  CIRCPAD_STATE_START       0
+
+/**
+ * The burst state for this machine.
+ *
+ * In the original Adaptive Padding algorithm and in WTF-PAD
+ * (https://www.freehaven.net/anonbib/cache/ShWa-Timing06.pdf and
+ * https://www.cs.kau.se/pulls/hot/thebasketcase-wtfpad/), the burst
+ * state serves to detect bursts in traffic. This is done by using longer
+ * delays in its histogram, which represent the expected delays between
+ * bursts of packets in the target stream. If this delay expires without a
+ * real packet being sent, the burst state sends a padding packet and then
+ * immediately transitions to the gap state, which is used to generate
+ * a synthetic padding packet train. In this implementation, this transition
+ * needs to be explicitly specified in the burst state's transition events.
+ *
+ * Because of this flexibility, other padding mechanisms can transition
+ * between these two states arbitrarily, to encode other dynamics of
+ * target traffic.
+ */
+#define  CIRCPAD_STATE_BURST       1
+
+/**
+ * The gap state for this machine.
+ *
+ * In the original Adaptive Padding algorithm and in WTF-PAD, the gap
+ * state serves to simulate an artificial packet train composed of padding
+ * packets. It does this by specifying much lower inter-packet delays than
+ * the burst state, and transitioning back to itself after padding is sent
+ * if these timers expire before real traffic is sent. If real traffic is
+ * sent, it transitions back to the burst state.
+ *
+ * Again, in this implementation, these transitions must be specified
+ * explicitly, and other transitions are also permitted.
+ */
+#define  CIRCPAD_STATE_GAP         2
+```
 
 ## Current Machines
 In `circuitpadding_machines.c` we find two machines that adds padding with the
