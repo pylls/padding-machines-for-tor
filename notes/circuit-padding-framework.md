@@ -27,12 +27,12 @@ part of onion services or for general purpose use. Constants for the different
 purposes are found in `src/core/or/circuitlist.h`, in total 24 different valid
 purposes, mostly dealing with client-server roles related to onion services. TCP
 streams are multiplexed inside a circuit as part of a _stream_, and typical
-operation of tor involves the frequent connection of both circuits and streams,
-just like regular TCP streams. 
+operation of tor with Tor Browser involves the frequent creation of both
+circuits and streams, just like regular TCP streams. 
 
-There are two types of circuits at a relay: either an origin circuit or an or
-circuit. An origin circuit is created at the relay itself, while a or circuit is
-a circuit that the relay acts as an onion router for. 
+There are two types of circuits in tor: either an origin circuit or an _or_
+circuit. An origin circuit is created at the tor instance itself, while a _or_
+circuit is a circuit that the tor instance acts as an onion router for. 
 
 ## What is a "Machine"?
 A machine is a state machine that exists _per circuit_, hence a "circuit padding
@@ -45,12 +45,13 @@ top-down here. There a three primary structs for a machine:
 - `circpad_machine_spec_t` The global specification of a machine, immutable.
 - `circpad_state_t` Global immutable description of a state and its possible
   transitions as part of a machine.
-- `circpad_machine_runtime_t` Per circuit description of the state machine with
-  _mutable_ data, kept as small as possible for sake of minimizing memory usage.
+- `circpad_machine_runtime_t` Per _circuit_ description of a state machine's
+  current state with _mutable_ data, kept as small as possible for sake of
+  minimizing memory usage.
 
 So a machine consists of one `circpad_machine_spec_t` that specifies a number of
 states and their transitions (`circpad_state_t`), all immutable. For each
-circuit, one `circpad_machine_runtime_t` consists mutable data, such as the
+circuit, one `circpad_machine_runtime_t` consists of mutable data, such as the
 current state of the machine on the circuit. 
 
 ### Details on `circpad_machine_spec_t`
@@ -121,14 +122,17 @@ padding. `machine_index` is as simple as it sounds, currently tor has a
 hardcoded array of size `CIRCPAD_MAX_MACHINES`, set to 2. Adding a new machine
 will require changes to this. In the future, the plan is to support having
 machines defined in torrc and from the consensus, but currently code is missing
-for this. 
+for this. Running padding machines between two relays involves _negotiation_ for
+both relays to agree to run the machine, and for this `machine_num` uniquely
+identifies a machine. 
 
 For understanding the framework, the most important fields are `conditions` and
 `states`. Note that `states` is an array of states with a maximum size of
-`CIRCPAD_STATENUM_MAX`, currently `UINT16_MAX`. We cover how a state is defined
-in the next section, but first, we look closer here at `conditions`. Simply put,
-a machine is only active on a circuit if specific _conditions_ are met, as shown
-below:
+`CIRCPAD_STATENUM_MAX`, currently `UINT16_MAX`, providing more than enough room
+for states (for comparison, WTF-PAD has three states). We cover how a state is
+defined in the next section, but first, we look closer here at `conditions`.
+Simply put, a machine is only active on a circuit if specific _conditions_ are
+met, as shown below:
 
 ```c
 typedef struct circpad_machine_conditions_t {
@@ -186,26 +190,93 @@ performance.
 
 ### Details on `circpad_state_t`
 On a high-level, each state consists of:
-- an IAT histogram or probability distribution
+- an IAT histogram or probability distribution.
+- a flag to use a RTT estimate for IAT.
 - a length (in terms of number of sent (padding) cells) probability distribution
-  with min-max parameters
+  with min-max parameters.
 - an array of _events_ that cause a _transition_ from the current state to
   the same or another state.
-- unsigned use_rtt_estimate : 1;
-((- We can transition due to events, can we also transition for other reasons?))
 
 The IAT histogram/distribution is used by `circpad_machine_sample_delay()` to
-sample a delay (in microseconds) for scheduling a padding cell. There are a wide
-range of considerations for the choice of histogram or probability destribution,
-far beyond the scope of these notes. Below we provide further details on
-possible options supported by the framework. 
+sample a delay (in microseconds) for scheduling a single padding cell. There are
+a wide range of considerations for the choice of histogram or probability
+destribution, far beyond the scope of these notes. For reference, tuning the
+histogram is _the_ hard problem for the WTF-PAD defense that inspired the design
+of the circuit padding framework and to the best of my knowledge no good
+approach exists. Further details on histograms and probability distributions are
+below. 
 
-The probability distribution for sampling a length: the number of sent (total or
-padding) cells while in this state, used by `circpad_choose_state_length()`.
-Note: does _not_ resample length when you transition to the same state, feature
-or bug?
+When an IAT is sampled from the histogram/distribution, the RTT flag decides if
+an RTT estimate should be added to the sampled delay. The RTT estimate estimates
+the delay from the relay to the "exit/website" (note: unsure what this means).
+Currently only supported from relay, not the tor client used by Tor Browser. The
+idea behind the RTT is to better be able to create realistic padding traffic
+that appears (in terms of latecy) like traffic from the real exit/webiste. 
 
-`circpad_machine_spec_transition()` for transitions. 
+The probability distribution for sampling a length: the maximum number of sent
+(total or padding) cells while in this state, used by
+`circpad_choose_state_length()`. [Note: does _not_ resample length when you
+transition to the same state, feature or bug? Appears to be feature, since
+internal states like `CIRCPAD_EVENT_LENGTH_COUNT` also cause a transition.]
+
+The array of events that cause a transition are defined as follows:
+```c
+  /**
+   * This is an array that specifies the next state to transition to upon
+   * receipt an event matching the indicated array index.
+   *
+   * This aborts our scheduled packet and switches to the state
+   * corresponding to the index of the array. Tokens are filled upon
+   * this transition.
+   *
+   * States are allowed to transition to themselves, which means re-schedule
+   * a new padding timer. They are also allowed to temporarily "transition"
+   * to the "IGNORE" and "CANCEL" pseudo-states. See #defines below
+   * for details on state behavior and meaning.
+   */
+  circpad_statenum_t next_state[CIRCPAD_NUM_EVENTS];
+```
+
+Here, `circpad_statenum_t` is the index of the states array `*states` in
+`circpad_machine_spec_t` for the machine. To tie it together, consider the
+possible _events_ that can cause a transition:
+
+```c
+/**
+ * These constants specify the types of events that can cause
+ * transitions between state machine states.
+ *
+ * Note that SENT and RECV are relative to this endpoint. For
+ * relays, SENT means packets destined towards the client and
+ * RECV means packets destined towards the relay. On the client,
+ * SENT means packets destined towards the relay, where as RECV
+ * means packets destined towards the client.
+ */
+typedef enum {
+  /* A non-padding cell was received. */
+  CIRCPAD_EVENT_NONPADDING_RECV = 0,
+  /* A non-padding cell was sent. */
+  CIRCPAD_EVENT_NONPADDING_SENT = 1,
+  /* A padding cell (RELAY_COMMAND_DROP) was sent. */
+  CIRCPAD_EVENT_PADDING_SENT = 2,
+  /* A padding cell was received. */
+  CIRCPAD_EVENT_PADDING_RECV = 3,
+  /* We tried to schedule padding but we ended up picking the infinity bin
+   * which means that padding was delayed infinitely */
+  CIRCPAD_EVENT_INFINITY = 4,
+  /* All histogram bins are empty (we are out of tokens) */
+  CIRCPAD_EVENT_BINS_EMPTY = 5,
+  /* just a counter of the events above */
+  CIRCPAD_EVENT_LENGTH_COUNT = 6
+} circpad_event_t;
+#define CIRCPAD_NUM_EVENTS ((int)CIRCPAD_EVENT_LENGTH_COUNT+1)
+```
+
+The function `circpad_machine_spec_transition()` is used for transitions, and
+there are exactly seven calls in tor's source to cause a transition, one for
+each even above. Note that the comment for `CIRCPAD_EVENT_LENGTH_COUNT` is
+wrong, the event is triggered when the state has used up its cell count (the
+sampled length in state as described above). [TODO: write pull request.]
 
 #### Histograms
 A [histogram](https://en.wikipedia.org/wiki/Histogram) is an estimation of a
