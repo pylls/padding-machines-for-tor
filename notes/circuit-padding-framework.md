@@ -27,8 +27,12 @@ part of onion services or for general purpose use. Constants for the different
 purposes are found in `src/core/or/circuitlist.h`, in total 24 different valid
 purposes, mostly dealing with client-server roles related to onion services. TCP
 streams are multiplexed inside a circuit as part of a _stream_, and typical
-operation of tor involves the frequent connection of both circuits and streams,
-just like regular TCP streams. 
+operation of tor with Tor Browser involves the frequent creation of both
+circuits and streams, just like regular TCP streams. 
+
+There are two types of circuits in tor: either an origin circuit or an _or_
+circuit. An origin circuit is created at the tor instance itself, while a _or_
+circuit is a circuit that the tor instance acts as an onion router for. 
 
 ## What is a "Machine"?
 A machine is a state machine that exists _per circuit_, hence a "circuit padding
@@ -41,18 +45,93 @@ top-down here. There a three primary structs for a machine:
 - `circpad_machine_spec_t` The global specification of a machine, immutable.
 - `circpad_state_t` Global immutable description of a state and its possible
   transitions as part of a machine.
-- `circpad_machine_runtime_t` Per circuit description of the state machine with
-  _mutable_ data, kept as small as possible for sake of minimizing memory usage.
+- `circpad_machine_runtime_t` Per _circuit_ description of a state machine's
+  current state with _mutable_ data, kept as small as possible for sake of
+  minimizing memory usage.
 
 So a machine consists of one `circpad_machine_spec_t` that specifies a number of
 states and their transitions (`circpad_state_t`), all immutable. For each
-circuit, one `circpad_machine_runtime_t` consists mutable data, such as the
+circuit, one `circpad_machine_runtime_t` consists of mutable data, such as the
 current state of the machine on the circuit. 
 
 ### Details on `circpad_machine_spec_t`
+Below is the full struct:
 
-#### Conditions for Being Active
-A machine is only active on a circuit if specific _conditions_ are
+```c
+typedef struct circpad_machine_spec_t {
+  /* Just a user-friendly machine name for logs */
+  const char *name;
+
+  /** Global machine number */
+  circpad_machine_num_t machine_num;
+
+  /** Which machine index slot should this machine go into in
+   *  the array on the circuit_t */
+  unsigned machine_index : 1;
+
+  /** Send a padding negotiate to shut down machine at end state? */
+  unsigned should_negotiate_end : 1;
+
+  // These next three fields are origin machine-only...
+  /** Origin side or relay side */
+  unsigned is_origin_side : 1;
+
+  /** Which hop in the circuit should we send padding to/from?
+   *  1-indexed (ie: hop #1 is guard, #2 middle, #3 exit). */
+  unsigned target_hopnum : 3;
+
+  /** If this flag is enabled, don't close circuits that use this machine even
+   *  if another part of Tor wants to close this circuit.
+   *
+   *  If this flag is set, the circuitpadding subsystem will close circuits the
+   *  moment the machine transitions to the END state, and only if the circuit
+   *  has already been asked to be closed by another part of Tor.
+   *
+   *  Circuits that should have been closed but were kept open by a padding
+   *  machine are re-purposed to CIRCUIT_PURPOSE_C_CIRCUIT_PADDING, hence
+   *  machines should take that purpose into account if they are filtering
+   *  circuits by purpose. */
+  unsigned manage_circ_lifetime : 1;
+
+  /** This machine only kills fascists if the following conditions are met. */
+  circpad_machine_conditions_t conditions;
+
+  /** How many padding cells can be sent before we apply overhead limits?
+   * XXX: Note that we can only allow up to 64k of padding cells on an
+   * otherwise quiet circuit. Is this enough? It's 33MB. */
+  uint16_t allowed_padding_count;
+
+  /** Padding percent cap: Stop padding if we exceed this percent overhead.
+   * 0 means no limit. Overhead is defined as percent of total traffic, so
+   * that we can use 0..100 here. This is the same definition as used in
+   * Prop#265. */
+  uint8_t max_padding_percent;
+
+  /** State array: indexed by circpad_statenum_t */
+  circpad_state_t *states;
+
+  /**
+   * Number of states this machine has (ie: length of the states array).
+   * XXX: This field is not needed other than for safety. */
+  circpad_statenum_t num_states;
+} circpad_machine_spec_t;
+```
+Most fields are self explanatory (but a lot to consider) and we see that care
+has been taken to be able to prevent machines from flooding the network with
+padding. `machine_index` is as simple as it sounds, currently tor has a
+hardcoded array of size `CIRCPAD_MAX_MACHINES`, set to 2. Adding a new machine
+will require changes to this. In the future, the plan is to support having
+machines defined in torrc and from the consensus, but currently code is missing
+for this. Running padding machines between two relays involves _negotiation_ for
+both relays to agree to run the machine, and for this `machine_num` uniquely
+identifies a machine. 
+
+For understanding the framework, the most important fields are `conditions` and
+`states`. Note that `states` is an array of states with a maximum size of
+`CIRCPAD_STATENUM_MAX`, currently `UINT16_MAX`, providing more than enough room
+for states (for comparison, WTF-PAD has three states). We cover how a state is
+defined in the next section, but first, we look closer here at `conditions`.
+Simply put, a machine is only active on a circuit if specific _conditions_ are
 met, as shown below:
 
 ```c
@@ -85,8 +164,8 @@ typedef struct circpad_machine_conditions_t {
 } circpad_machine_conditions_t;
 ```
 
-The purpose of the circuit is encoded is `purpose_mask`, as discussed earlier,
-and `state_mask` covers the state of the circuit:
+The purpose of the circuit is encoded as a `purpose_mask` (we covered purposes
+briefly in the background) and `state_mask` covers the state of the circuit:
 
 ```c
 typedef enum {
@@ -106,17 +185,139 @@ typedef enum {
 } circpad_circuit_state_t;
 ```
 This allows us quite some control over when a machine should be active on a
-circuit.
+circuit, important both for creating machines with a specific goal and
+performance.
 
 ### Details on `circpad_state_t`
+On a high-level, each state consists of:
+- an IAT histogram or probability distribution.
+- a flag to use a RTT estimate for IAT.
+- a length (in terms of number of sent (padding) cells) probability distribution
+  with min-max parameters.
+- an array of _events_ that cause a _transition_ from the current state to
+  the same or another state.
 
-To sample delays machines can use:
-- histograms with or without token removal, or 
-- probability distributions.
+The IAT histogram/distribution is used by `circpad_machine_sample_delay()` to
+sample a delay (in microseconds) for scheduling a single padding cell. There are
+a wide range of considerations for the choice of histogram or probability
+destribution, far beyond the scope of these notes. For reference, tuning the
+histogram is _the_ hard problem for the WTF-PAD defense that inspired the design
+of the circuit padding framework and to the best of my knowledge no good
+approach exists. Further details on histograms and probability distributions are
+below. 
 
-...
+When an IAT is sampled from the histogram/distribution, the RTT flag decides if
+an RTT estimate should be added to the sampled delay. The RTT estimate estimates
+the delay from the relay to the "exit/website" (note: unsure what this means).
+Currently only supported from relay, not the tor client used by Tor Browser. The
+idea behind the RTT is to better be able to create realistic padding traffic
+that appears (in terms of latecy) like traffic from the real exit/webiste. 
 
-- We can transition due to events, can we also transition for other reasons?
+The probability distribution for sampling a length: the maximum number of sent
+(total or padding) cells while in this state, used by
+`circpad_choose_state_length()`. [Note: does _not_ resample length when you
+transition to the same state, feature or bug? Appears to be feature, since
+internal states like `CIRCPAD_EVENT_LENGTH_COUNT` also cause a transition.] When
+the length is reached, no more padding will be sent, and an event will be
+triggered that may trigger a transition.
+
+The array of events that cause a transition are defined as follows:
+```c
+  /**
+   * This is an array that specifies the next state to transition to upon
+   * receipt an event matching the indicated array index.
+   *
+   * This aborts our scheduled packet and switches to the state
+   * corresponding to the index of the array. Tokens are filled upon
+   * this transition.
+   *
+   * States are allowed to transition to themselves, which means re-schedule
+   * a new padding timer. They are also allowed to temporarily "transition"
+   * to the "IGNORE" and "CANCEL" pseudo-states. See #defines below
+   * for details on state behavior and meaning.
+   */
+  circpad_statenum_t next_state[CIRCPAD_NUM_EVENTS];
+```
+
+Here, `circpad_statenum_t` is the index of the states array `*states` in
+`circpad_machine_spec_t` for the machine. To tie it together, consider the
+possible _events_ that can cause a transition:
+
+```c
+/**
+ * These constants specify the types of events that can cause
+ * transitions between state machine states.
+ *
+ * Note that SENT and RECV are relative to this endpoint. For
+ * relays, SENT means packets destined towards the client and
+ * RECV means packets destined towards the relay. On the client,
+ * SENT means packets destined towards the relay, where as RECV
+ * means packets destined towards the client.
+ */
+typedef enum {
+  /* A non-padding cell was received. */
+  CIRCPAD_EVENT_NONPADDING_RECV = 0,
+  /* A non-padding cell was sent. */
+  CIRCPAD_EVENT_NONPADDING_SENT = 1,
+  /* A padding cell (RELAY_COMMAND_DROP) was sent. */
+  CIRCPAD_EVENT_PADDING_SENT = 2,
+  /* A padding cell was received. */
+  CIRCPAD_EVENT_PADDING_RECV = 3,
+  /* We tried to schedule padding but we ended up picking the infinity bin
+   * which means that padding was delayed infinitely */
+  CIRCPAD_EVENT_INFINITY = 4,
+  /* All histogram bins are empty (we are out of tokens) */
+  CIRCPAD_EVENT_BINS_EMPTY = 5,
+  /* just a counter of the events above */
+  CIRCPAD_EVENT_LENGTH_COUNT = 6
+} circpad_event_t;
+#define CIRCPAD_NUM_EVENTS ((int)CIRCPAD_EVENT_LENGTH_COUNT+1)
+```
+
+The function `circpad_machine_spec_transition()` is used for transitions, and
+there are exactly seven calls in tor's source to cause a transition, one for
+each even above. Note that the comment for `CIRCPAD_EVENT_LENGTH_COUNT` is
+wrong, the event is triggered when the state has used up its cell count (the
+sampled length in state as described above). [TODO: write pull request.]
+
+Finally, it is worth to note is that there are some hardcoded states that are
+used internally in the framework:
+```c
+/**
+ * End is a pseudo-state that causes the machine to go completely
+ * idle, and optionally get torn down (depending on the
+ * value of circpad_machine_spec_t.should_negotiate_end)
+ *
+ * End MUST NOT occupy a slot in the machine state array.
+ */
+#define  CIRCPAD_STATE_END         CIRCPAD_STATENUM_MAX
+
+/**
+ * "Ignore" is a pseudo-state that means "do not react to this
+ * event".
+ *
+ * "Ignore" MUST NOT occupy a slot in the machine state array.
+ */
+#define  CIRCPAD_STATE_IGNORE         (CIRCPAD_STATENUM_MAX-1)
+
+/**
+ * "Cancel" is a pseudo-state that means "cancel pending timers,
+ * but remain in your current state".
+ *
+ * Cancel MUST NOT occupy a slot in the machine state array.
+ */
+#define  CIRCPAD_STATE_CANCEL         (CIRCPAD_STATENUM_MAX-2)
+
+/**
+ * Since we have 3 pseudo-states, the max state array length is
+ * up to one less than cancel's statenum.
+ */
+#define CIRCPAD_MAX_MACHINE_STATES  (CIRCPAD_STATE_CANCEL-1)
+```
+When the states of a machine is initalized using
+`circpad_machine_states_init()`, for every state and every possible event that
+can cause a transition, `CIRCPAD_STATE_IGNORE` is set as the default state,
+i.e., do nothing. 
 
 #### Histograms
 A [histogram](https://en.wikipedia.org/wiki/Histogram) is an estimation of a
@@ -303,7 +504,77 @@ The distribution for IAT is selected for a machine as part of the immutable
 ```
 
 ### Details on `circpad_machine_runtime_t`
+The runtime struct contains a number of variables for internal bookkeeping
+related to timers, the current state, histogram (if used), amount of padding
+sent, etc. This is all transparent from what I can tell right now when creating
+machines. Worth to note when creating custom machines is that the struct ends
+with the following:
 
+```c
+typedef struct circpad_machine_runtime_t {
+  ....
+/** Max number of padding machines on each circuit. If changed,
+ * also ensure the machine_index bitwith supports the new size. */
+#define CIRCPAD_MAX_MACHINES    (2)
+  /** Which padding machine index was this for.
+   * (make sure changes to the bitwidth can support the
+   * CIRCPAD_MAX_MACHINES define). */
+  unsigned machine_index : 1;
+} circpad_machine_runtime_t;
+```
+
+### Misc notes
+I found the below defines confusing at first, they're only used for a test right
+now, and would make sense for an explicit WTF PAD machine as part of
+`src/core/or/circuitpadding_machines.{h,c}`, not the framework itself.
+
+```c
+/**
+ * The start state for this machine.
+ *
+ * In the original WTF-PAD, this is only used for transition to/from
+ * the burst state. All other fields are not used. But to simplify the
+ * code we've made it a first-class state. This has no performance
+ * consequences, but may make naive serialization of the state machine
+ * large, if we're not careful about how we represent empty fields.
+ */
+#define  CIRCPAD_STATE_START       0
+
+/**
+ * The burst state for this machine.
+ *
+ * In the original Adaptive Padding algorithm and in WTF-PAD
+ * (https://www.freehaven.net/anonbib/cache/ShWa-Timing06.pdf and
+ * https://www.cs.kau.se/pulls/hot/thebasketcase-wtfpad/), the burst
+ * state serves to detect bursts in traffic. This is done by using longer
+ * delays in its histogram, which represent the expected delays between
+ * bursts of packets in the target stream. If this delay expires without a
+ * real packet being sent, the burst state sends a padding packet and then
+ * immediately transitions to the gap state, which is used to generate
+ * a synthetic padding packet train. In this implementation, this transition
+ * needs to be explicitly specified in the burst state's transition events.
+ *
+ * Because of this flexibility, other padding mechanisms can transition
+ * between these two states arbitrarily, to encode other dynamics of
+ * target traffic.
+ */
+#define  CIRCPAD_STATE_BURST       1
+
+/**
+ * The gap state for this machine.
+ *
+ * In the original Adaptive Padding algorithm and in WTF-PAD, the gap
+ * state serves to simulate an artificial packet train composed of padding
+ * packets. It does this by specifying much lower inter-packet delays than
+ * the burst state, and transitioning back to itself after padding is sent
+ * if these timers expire before real traffic is sent. If real traffic is
+ * sent, it transitions back to the burst state.
+ *
+ * Again, in this implementation, these transitions must be specified
+ * explicitly, and other transitions are also permitted.
+ */
+#define  CIRCPAD_STATE_GAP         2
+```
 
 ## Current Machines
 In `circuitpadding_machines.{h.c}` we find two machines that adds padding with the
