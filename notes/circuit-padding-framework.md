@@ -306,8 +306,8 @@ The distribution for IAT is selected for a machine as part of the immutable
 
 
 ## Current Machines
-In `circuitpadding_machines.c` we find two machines that adds padding with the
-goal of hiding IP and RP circuits, as used for onion services: 
+In `circuitpadding_machines.{h.c}` we find two machines that adds padding with the
+goal of hiding IP and RP circuits, as used for onion services. In gist: 
 
 - The IP hiding machine injects two cells on IP circuit creation on the client
   side, sending them to middle relay. After the the middle relay gets any
