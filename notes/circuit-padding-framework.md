@@ -120,10 +120,14 @@ Most fields are self explanatory (but a lot to consider) and we see that care
 has been taken to be able to prevent machines from flooding the network with
 padding. `machine_index` is as simple as it sounds, currently tor has a
 hardcoded array of size `CIRCPAD_MAX_MACHINES`, set to 2. Adding a new machine
-will require changes to this. In the future, the plan is to support having
-machines defined in torrc and from the consensus, but currently code is missing
-for this. Running padding machines between two relays involves _negotiation_ for
-both relays to agree to run the machine, and for this `machine_num` uniquely
+may require changes. This limit is for the number of active machines on a
+circuit at the same time. In the future, the plan is to support having machines
+defined in torrc and from the consensus, but currently code is missing for this.
+Having explicit array locations for machines with `machine_index` ensures that
+the order machines operate in the framework are deterministic. 
+
+Running padding machines between a relay and a client involves
+_negotiation_ to agree to run the machine, and for this `machine_num` uniquely
 identifies a machine. 
 
 For understanding the framework, the most important fields are `conditions` and
@@ -200,7 +204,7 @@ On a high-level, each state consists of:
 The IAT histogram/distribution is used by `circpad_machine_sample_delay()` to
 sample a delay (in microseconds) for scheduling a single padding cell. There are
 a wide range of considerations for the choice of histogram or probability
-destribution, far beyond the scope of these notes. For reference, tuning the
+distribution, far beyond the scope of these notes. For reference, tuning the
 histogram is _the_ hard problem for the WTF-PAD defense that inspired the design
 of the circuit padding framework and to the best of my knowledge no good
 approach exists. Further details on histograms and probability distributions are
@@ -273,6 +277,10 @@ typedef enum {
 } circpad_event_t;
 #define CIRCPAD_NUM_EVENTS ((int)CIRCPAD_EVENT_LENGTH_COUNT+1)
 ```
+
+Here, the events are between a client (origin) and a relay. At origin, the
+events will trigger on any (non)padding to/from the network on the circuit,
+while at the relay (non)padding cells are to/from origin on the circuit.
 
 The function `circpad_machine_spec_transition()` is used for transitions, and
 there are exactly seven calls in tor's source to cause a transition, one for
@@ -523,7 +531,32 @@ typedef struct circpad_machine_runtime_t {
 } circpad_machine_runtime_t;
 ```
 
-### Misc notes
+## How Machines are Negotiated
+The padding negotiation works as follows. At origin,
+`circpad_add_matching_machines()` is called every time a circuit changes in one of the following ways:
+- a new hop to the circuit, 
+- the circuit is built, 
+- the purpose of the circuit changed, 
+- the circuit is out of RELAY_EARLY cells,
+- streams are attached, and 
+- streams are detached.
+
+ For each possible machine that has a free machine index at the circuit and
+ where the conditions are fulfilled for it to be run, negotiation between an
+ origin client and a relay flows as follows:
+1. the origin uses `circpad_negotiate_padding()` to send a request to use the
+   machine (by global `machine_num`), 
+2. the relay parses the request to start padding with
+   `circpad_handle_padding_negotiate()`,
+3. creates a response with `circpad_padding_negotiated()`, and 
+4. finally the client parses the response with
+    `circpad_handle_padding_negotiated()`. 
+
+The negotiation can fail due to lack of support for padding in general or the
+lack of support for the requested machine (e.g., due to consensus drift once
+support is in place).
+
+## Misc notes
 I found the below defines confusing at first, they're only used for a test right
 now, and would make sense for an explicit WTF PAD machine as part of
 `src/core/or/circuitpadding_machines.{h,c}`, not the framework itself.
@@ -575,6 +608,47 @@ now, and would make sense for an explicit WTF PAD machine as part of
  */
 #define  CIRCPAD_STATE_GAP         2
 ```
+
+```c
+STATIC void
+circpad_add_matching_machines(origin_circuit_t *on_circ,
+                              smartlist_t *machines_sl)
+{
+  .....
+        /* Set up the machine immediately so that the slot is occupied.
+         * We will tear it down on error return, or if there is an error
+         * response from the relay. */
+        circpad_setup_machine_on_circ(circ, machine);
+        if (circpad_negotiate_padding(on_circ, machine->machine_num,
+                                  machine->target_hopnum,
+                                  CIRCPAD_COMMAND_START) < 0) {
+          log_info(LD_CIRC, "Padding not negotiated. Cleaning machine");
+          circpad_circuit_machineinfo_free_idx(circ, i);
+          circ->padding_machine[i] = NULL;
+          on_circ->padding_negotiation_failed = 1;
+        } else {
+          /* Success. Don't try any more machines */
+          return;
+        }
+      }
+    } SMARTLIST_FOREACH_END(machine);
+  } FOR_EACH_CIRCUIT_MACHINE_END;
+}
+```
+The return above is a bug? Can only add one machine now, but there might be
+`CIRCPAD_MAX_MACHINES`of them. Should be a break to try the next machine index.
+TODO: try running more than two machines that matches the same condition to
+confirm bug. 
+
+```c
+  log_fn(LOG_INFO,LD_CIRC,"\tPadding in %u usec", in_usec);
+
+  // Don't schedule if we have infinite delay.
+  if (in_usec == CIRCPAD_DELAY_INFINITE) {
+    return circpad_internal_event_infinity(mi);
+  }
+```
+TODO: Move the log to after the check.
 
 ## Current Machines
 In `circuitpadding_machines.{h.c}` we find two machines that adds padding with the
