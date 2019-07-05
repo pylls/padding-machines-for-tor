@@ -650,6 +650,10 @@ confirm bug.
 ```
 TODO: Move the log to after the check.
 
+There are several references in comments on `monotime_absolute_usec()` being
+unpredictably expensive and avoided. This is only used for histograms with token
+removal and RTT esitmates.
+
 ## Current Machines
 In `circuitpadding_machines.{h.c}` we find two machines that adds padding with the
 goal of hiding IP and RP circuits, as used for onion services. In gist: 
@@ -662,7 +666,48 @@ goal of hiding IP and RP circuits, as used for onion services. In gist:
 - The RP hiding machine ...
 
 ### The IP Circuit Hiding Machine
-TODO: go over in detail, break down code
+Some minor observations below. 
+
+```c
+ /* The client side should never send padding, so it does not need
+   * to specify token removal, or a histogram definition or state lengths.
+   * That is all controlled by the middle node. */
+```
+Above is true, if no histogram or prob dist is defined, then eventually in
+`circpad_machine_sample_delay()` we end up sampling `CIRCPAD_DELAY_INFINITE` due
+to:
+```c
+  /* If we are out of tokens, don't schedule padding. */
+  if (!histogram_total_tokens) {
+    return CIRCPAD_DELAY_INFINITE;
+  }
+```
+Not a clean solution.
+
+```c
+circpad_machine_relay_hide_intro_circuits(smartlist_t *machines_sl)
+{
+  ...
+  relay_machine->conditions.state_mask = CIRCPAD_CIRC_OPENED;
+  relay_machine->target_hopnum = 2;
+```
+Here, `target_hopnum` is set, but the comment for the attribute of the struct
+says:
+```c
+typedef struct circpad_machine_spec_t {
+  ...
+  // These next three fields are origin machine-only...
+  /** Origin side or relay side */
+  unsigned is_origin_side : 1;
+
+  /** Which hop in the circuit should we send padding to/from?
+   *  1-indexed (ie: hop #1 is guard, #2 middle, #3 exit). */
+  unsigned target_hopnum : 3;
+```
+since this is the non-origin (relay) machine, `target_hopnum` shouldn't be
+needed. One might wonder here what the consequences are for there not being any
+mechanism for preventing, say, the guard or exit being negotiated into running a
+machine when it's not at the intended hop? 
 
 ### The RP Circuit Hiding Machine
 TODO
