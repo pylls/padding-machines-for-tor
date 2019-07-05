@@ -655,15 +655,18 @@ unpredictably expensive and avoided. This is only used for histograms with token
 removal and RTT esitmates.
 
 ## Current Machines
-In `circuitpadding_machines.{h.c}` we find two machines that adds padding with the
-goal of hiding IP and RP circuits, as used for onion services. In gist: 
+In `circuitpadding_machines.{h.c}` we find two machines that adds padding with
+the goal of hiding IP and RP circuits (making them look like general circuits),
+as used for onion services. In gist: 
 
 - The IP hiding machine injects two cells on IP circuit creation on the client
-  side, sending them to middle relay. After the the middle relay gets any
-  non-padding cells to send to the client, it in turn uniformly random every
-  [1,10] ms sends a padding cell to the client, up to a total of uniformly
-  random [7,10] padding cells have been sent. 
-- The RP hiding machine ...
+  side (by negotiating padding), sending them to middle relay. After the the
+  middle relay gets any non-padding cells to send to the client, it in turn
+  uniformly random every [1,10] ms sends a padding cell to the client, up to a
+  total of uniformly random [7,10] padding cells have been sent. 
+- The RP hiding machine injects one cell (in addition to two negotiation cells)
+  during the RP circuit creation on the client side, sending it to the middle
+  relay within [0,1] ms. The machine does exactly the same on the relay side. 
 
 ### The IP Circuit Hiding Machine
 Some minor observations below. 
@@ -710,4 +713,24 @@ mechanism for preventing, say, the guard or exit being negotiated into running a
 machine when it's not at the intended hop? 
 
 ### The RP Circuit Hiding Machine
-TODO
+
+```c
+circpad_machine_relay_hide_rend_circuits(smartlist_t *machines_sl)
+{
+  ...
+  relay_machine->target_hopnum = 2;
+  ...
+```
+Same issue as for the other machine: this should only be needed for origins
+(clients). 
+
+```c
+  /* OBFUSCATE_CIRC_SETUP -> END transition when we send our first
+   * padding packet and/or hit the state length (the state length is 1). */
+  relay_machine->states[CIRCPAD_STATE_OBFUSCATE_CIRC_SETUP].
+      next_state[CIRCPAD_EVENT_PADDING_RECV] = CIRCPAD_STATE_END;
+  relay_machine->states[CIRCPAD_STATE_OBFUSCATE_CIRC_SETUP].
+      next_state[CIRCPAD_EVENT_LENGTH_COUNT] = CIRCPAD_STATE_END;
+```
+The `CIRCPAD_EVENT_PADDING_RECV` should be `CIRCPAD_EVENT_PADDING_SENT`? Seems
+like a bug.
