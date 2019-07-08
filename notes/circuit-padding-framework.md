@@ -653,6 +653,15 @@ There are several references in comments on `monotime_absolute_usec()` being
 unpredictably expensive and avoided. This is only used for histograms with token
 removal and RTT estimates.
 
+There appears to be a lack of logic for relay-side machines and validating that
+they are in fact intended to be running listed machines. This worries me from a
+DoS perspective and exit relays: one negotiation packet could cause so much work
+if the machine does not take this into account. 
+
+Throughout the code, padding cell = padding packet. Is this really the case?
+Won't it just send one cell, where we have room for at least 2 cells in a
+typical packet of MTU around 1500ish bytes?
+
 ## Current Machines
 In `circuitpadding_machines.{h.c}` we find two machines that adds padding with
 the goal of hiding IP and RP circuits (making them look like general circuits),
