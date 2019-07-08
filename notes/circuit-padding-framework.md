@@ -215,7 +215,7 @@ an RTT estimate should be added to the sampled delay. The RTT estimate estimates
 the delay from the relay to the "exit/website" (note: unsure what this means).
 Currently only supported from relay, not the tor client used by Tor Browser. The
 idea behind the RTT is to better be able to create realistic padding traffic
-that appears (in terms of latecy) like traffic from the real exit/webiste. 
+that appears (in terms of latency) like traffic from the real exit/website. 
 
 The probability distribution for sampling a length: the maximum number of sent
 (total or padding) cells while in this state, used by
@@ -637,8 +637,7 @@ circpad_add_matching_machines(origin_circuit_t *on_circ,
 ```
 The return above is a bug? Can only add one machine now, but there might be
 `CIRCPAD_MAX_MACHINES`of them. Should be a break to try the next machine index.
-TODO: try running more than two machines that matches the same condition to
-confirm bug. 
+PR sent: https://github.com/torproject/tor/pull/1168.
 
 ```c
   log_fn(LOG_INFO,LD_CIRC,"\tPadding in %u usec", in_usec);
@@ -652,7 +651,7 @@ TODO: Move the log to after the check.
 
 There are several references in comments on `monotime_absolute_usec()` being
 unpredictably expensive and avoided. This is only used for histograms with token
-removal and RTT esitmates.
+removal and RTT estimates.
 
 ## Current Machines
 In `circuitpadding_machines.{h.c}` we find two machines that adds padding with
@@ -732,5 +731,5 @@ Same issue as for the other machine: this should only be needed for origins
   relay_machine->states[CIRCPAD_STATE_OBFUSCATE_CIRC_SETUP].
       next_state[CIRCPAD_EVENT_LENGTH_COUNT] = CIRCPAD_STATE_END;
 ```
-The `CIRCPAD_EVENT_PADDING_RECV` should be `CIRCPAD_EVENT_PADDING_SENT`? Seems
-like a bug.
+The `CIRCPAD_EVENT_PADDING_RECV` should be `CIRCPAD_EVENT_PADDING_SENT`, seems
+like a bug, sent PR https://github.com/torproject/tor/pull/1167.
