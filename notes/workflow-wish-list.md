@@ -57,3 +57,5 @@ For `quick-eval.py`: step 4, it depends on how we orchestrate clients. Steps
 [Consider future UC.]
 
 ### Client Orchestration
+https://github.com/webfp/tor-browser-selenium would be the go-to option. Brings
+many dependencies though. Worthwhile to tackle now?
