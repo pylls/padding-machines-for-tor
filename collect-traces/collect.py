@@ -40,7 +40,7 @@ ap.add_argument("-m", required=False, default=1384, type=int,
 args = vars(ap.parse_args())
 
 RESULTSFMT = "{}-{}.pcap"
-TSHARKFMT = "tshark -i {} -f \"host {}\" -s {} -a duration:{} -w {} -F libpcap"
+TSHARKFMT = "tshark -i {} -f \"host {} and length > 511\" -s {} -a duration:{} -w {} -F libpcap"
 
 def main():
     if not os.path.exists(args["d"]):
