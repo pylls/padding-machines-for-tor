@@ -20,8 +20,8 @@ ap.add_argument("-l", required=True,
     help="Alexa file with list of sites to visit")
 ap.add_argument("-n", required=True, type=int,
     help="number of samples")
-ap.add_argument("-r", required=True,
-    help="shared folder for storing results")
+ap.add_argument("-d", required=True,
+    help="shared data folder for storing results")
 ap.add_argument("-g", required=True, 
     help="IP address of guard")
 
@@ -33,17 +33,25 @@ ap.add_argument("-i", required=False, default="eth0",
     help="network interface to capture from")
 ap.add_argument("-s", required=False, default=68, type=int,
     help="snaplen to capture")
+# with default snaplen 68, expect at least 100 packets, and account for pcap
+# header of 24 bytes: 68x100+24 = 6824
+ap.add_argument("-m", required=False, default=1384, type=int,
+    help="minimum pcap size to accept (bytes)")
 args = vars(ap.parse_args())
 
 RESULTSFMT = "{}-{}.pcap"
 TSHARKFMT = "tshark -i {} -f \"host {}\" -s {} -a duration:{} -w {} -F libpcap"
 
 def main():
+    if not os.path.exists(args["d"]):
+        print("data directory {} does not exist".format(args["d"]))
+        return -1
+
     print("reading Alexa site list {}".format(args["l"]))
     alexa = get_alexa_list()
     print("ok, list has {} sites".format(len(alexa)))
 
-    # FIXME warmup visits? 
+    # FIXME: make a copy of TB, warmup visits, make a copy again and go
 
     # random order of samples and alexa, ensuring that each instance of this
     # script won't be working on the same alexa-sample pair
@@ -53,40 +61,56 @@ def main():
         random.shuffle(alexa)
         for index, site in alexa:
             # only attempt to collect if not already collected
-            if not os.path.isfile(RESULTSFMT.format(index, n)):
+            if not os.path.isfile(results_file(index, n)):
                 collect(index, site, n)
+
+    # FIXME: cleanup copies of TB
 
 def collect(index, site, sample):
     print("collect index {}, site {}, sample {}".format(index, site, sample))
-    #subprocess.call("./visit.sh {} {}".format(site, sample), shell=True)
-    fname = RESULTSFMT.format(index, sample)
+    fname = results_file(index, sample)
+
+    # FIXME: make TB copy
 
     for a in range(args["a"]):
-        if a % 2 == 0:
+        # after two attempts, try to toggle www. prefix on url
+        if a >= 2:
             site = togglewww(site)
         
         # start network capture in new thread
         t = threading.Thread(target=capture, args=(fname,))
         t.start()
 
-        # fixme: sleep briefly, giving the thread time to start
+        # sleep briefly, giving the thread time to start
+        time.sleep(1)
 
         # visit with TB, blocking
+        #subprocess.call("./visit.sh {} {}".format(site, sample), shell=True)
+        visit(site)
 
         # wait for network capture to finish
         t.join()
 
-        # if capture was successful, break
-        # FIXME: check based on filesize (?), set constant
+        # if capture was successful and at least of minimum size, break
+        if os.path.isfile(fname) and os.path.getsize(fname) >= args["m"]:
+            break
+
+def visit(url):
+    subprocess.call("./visit.sh {}".format(url), shell=True)
 
 def capture(fname):
-    print(TSHARKFMT.format(args["i"], args["g"], args["s"], args["t"], fname))
+    cmd = TSHARKFMT.format(args["i"], args["g"], args["s"], args["t"], fname)
+    print(cmd)
+    subprocess.call(cmd, shell=True)
 
 def togglewww(site):
     if site.startswith("www."):
         return site[4:]
     else:
         return "www."+site
+
+def results_file(index, sample):
+    return os.path.join(args["d"], RESULTSFMT.format(index, sample))
 
 def get_alexa_list():
     l = []
