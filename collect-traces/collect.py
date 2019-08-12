@@ -99,14 +99,14 @@ def collect(index, site, sample, tb_orig):
     print("collect index {}, site {}, sample {}".format(index, site, sample))
     fname = results_file(index, sample)
 
-    # make a dedicated TB copy for this website
-    tb = make_tb_copy(tb_orig)
-
     for a in range(args["a"]):
         # after two attempts, try to toggle www. prefix on url
         if a >= 2:
             site = toggle_www(site)
-        
+
+        # create fresh TB copy
+        tb = make_tb_copy(tb_orig)
+
         # start network capture in new thread
         t = threading.Thread(target=capture, args=(fname,))
         t.start()
@@ -117,14 +117,18 @@ def collect(index, site, sample, tb_orig):
         # visit with TB, blocking
         visit(site, tb, args["t"]-1)
 
+        # cleanup before/while waiting
+        cleanup_tb_copy(tb)
+
         # wait for network capture to finish
         t.join()
 
-        # if capture was successful and at least of minimum size, break
+        # if capture was successful and at least of minimum size, done
         if os.path.isfile(fname) and os.path.getsize(fname) >= args["m"]:
             break
-    
-    cleanup_tb_copy(tb)
+        
+        # otherwise remove the file, too little data, so other instances can try
+        os.remove(fname)
 
 def make_tb_copy(src):
     dst = os.path.join(tmpdir, 
