@@ -44,6 +44,8 @@ ap.add_argument("-t", required=False, default=60, type=int,
     help="timeout (s) for each TB visit")
 ap.add_argument("-i", required=False, default="eth0",
     help="network interface to capture from")
+ap.add_argument("-v", required=False, default="./visit.sh",
+    help="location of the visit.sh script")
 
 # SnapLen of 68 bytes for IPv4 packets and 96 bytes for IPv6 packets
 ap.add_argument("-s", required=False, default=68, type=int,
@@ -141,7 +143,7 @@ def cleanup_tb_copy(c):
 
 def visit(url, tb, timeout):
     tb = os.path.join(tb, "Browser", "start-tor-browser")
-    subprocess.call("./visit.sh {} {} {}".format(url, tb, timeout), shell=True)
+    subprocess.call("{} {} {} {}".format(args["v"], url, tb, timeout), shell=True)
 
 def capture(fname):
     cmd = TSHARKFMT.format(args["i"], args["g"], args["s"], args["t"], fname)
