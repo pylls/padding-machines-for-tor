@@ -22,7 +22,7 @@ cd tor
 git checkout tor-0.4.1.5
 ```
 Above we use the tag for tor-0.4.1.5 where the circuit padding framework was
-released, feel free to use somethinf newer (avoid HEAD though, can have bugs).
+released, feel free to use something newer (avoid HEAD though, can have bugs).
 
 ```bash
 sh autogen.sh 
