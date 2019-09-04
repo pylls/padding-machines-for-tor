@@ -176,7 +176,7 @@ circpad_machine_client_wf_ape(smartlist_t *machines_sl)
 }
 ```
 
-We also have to modfiy `circpad_machines_init()` in `circuitpadding.c` to
+We also have to modify `circpad_machines_init()` in `circuitpadding.c` to
 register our machines:
 
 ```c
@@ -222,7 +222,35 @@ padding machine that can run.
 Next, we follow the same steps as earlier and replace the modified `tor` at our
 middle relay. We don't update the logging there to avoid logging on the info
 level on the live network. Looking at the client log again we see that
-negotation works as before except for the last line: it's missing, so the
+negotiation works as before except for the last line: it's missing, so the
 machine is running at the middle as well.  
 
 ## Implementing the APE state machine
+
+Porting is fairly straightforward: define the states for all machines, add two
+more machines (for the receive portion of WTFP-PAD, beyond AP), and pick
+reasonable parameters for the distributions (I completely winged it now, as when
+implementing APE). The [circuit-padding-ape-machine
+branch](https://github.com/pylls/tor/tree/circuit-padding-ape-machine) contains
+the commits for the full machines with plenty of comments. 
+
+Some comments on the process:
+
+- `tor-0.4.1.5` does not support two machines on the same circuit, the following
+  fix has to be made: https://trac.torproject.org/projects/tor/ticket/31111 .
+  The good news is that everything else seems to work after the small change in
+  the fix. 
+- APE randomizes its distributions. Currently, this can only be done during
+  start of `tor`. This makes sense in the censorship circumvention setting
+  (`obfs4`), less so for WF defenses: further randomizing each circuit is likely
+  a PITA for attackers with few downsides.
+- it was annoying to figure out that the lack of systemd support in my compiled
+  tor caused systemd to interrupt (SIGINT) my tor process at the middle relay
+  every five minutes. Updated build steps above to hopefully save others the
+  pain.
+- there's for sure some bug on relays when sending padding cells too early (?).
+  It can happen with some probability with the APE implementation due to
+  `circpad_machine_relay_wf_ape_send()`. Will investigate next.
+
+Remember that APE is just a proof-of-concept and we make zero claims about its
+ability to withstand WF attacks, in particular those based on deep learning.
