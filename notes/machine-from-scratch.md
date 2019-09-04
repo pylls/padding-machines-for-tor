@@ -30,9 +30,17 @@ sh autogen.sh
 make
 ```
 When you run `./configure` you'll be told of missing dependencies and packages
-to install on debian-based distributions. If you want to install on your local
-system, run `make install`. For our case we just want the tor binary at
-`src/app/tor`.
+to install on debian-based distributions. Important: if you plan to run `tor` on
+a relay as part of the real Tor network and your server runs a distribution that
+uses systemd, then I'd recommend that you `apt install dpkg dpkg-dev
+libevent-dev libssl-dev asciidoc quilt dh-apparmor libseccomp-dev dh-systemd
+libsystemd-dev pkg-config dh-autoreconf libfakeroot zlib1g zlib1g-dev automake
+liblzma-dev libzstd-dev` and ensure that tor has systemd support enabled:
+`./configure --enable-systemd`. Without this, on a recent Ubuntu, my tor service
+was forcefully restarted (SIGINT interrupt) by systemd every five minutes.
+
+If you want to install on your localsystem, run `make install`. For our case we
+just want the tor binary at `src/app/tor`.
 
 ## Use tor in TB and at a relay
 Download and install a fresh Tor Browser (TB) from torproject.org. Make sure it
