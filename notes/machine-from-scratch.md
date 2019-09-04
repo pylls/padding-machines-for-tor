@@ -251,6 +251,9 @@ Some comments on the process:
 - there's for sure some bug on relays when sending padding cells too early (?).
   It can happen with some probability with the APE implementation due to
   `circpad_machine_relay_wf_ape_send()`. Will investigate next.
+- Moving the registration of machines from the definition of the machines to
+  `circpad_machines_init()` makes sense, as suggested in the circuit padding doc
+  draft.
 
 Remember that APE is just a proof-of-concept and we make zero claims about its
 ability to withstand WF attacks, in particular those based on deep learning.
