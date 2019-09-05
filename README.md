@@ -22,6 +22,22 @@ All development will take place here in the open. The goal is to finish the
 first phase in time for [PETS 2019](https://www.petsymposium.org/2019/) in
 Stockholm July 16-20, to interact with other researchers and Tor developers.
 
+## Project status
+Bi-monthly updates are provided in
+[statusreports/](statusreports/)
+. 
+
+Phase 1 is completed. Fun results:
+- [Developer notes on the circuit padding framework](notes/circuit-padding-framework.md).
+- [Building a padding machine from scratch](notes/machine-from-scratch.md).
+- [Implemented an APE-like padding machine](https://github.com/pylls/tor/tree/circuit-padding-ape-machine). 
+- Tor trac tickets: [#31098](https://trac.torproject.org/projects/tor/ticket/31098),
+  [#31111](https://trac.torproject.org/projects/tor/ticket/31111),
+  [#31112](https://trac.torproject.org/projects/tor/ticket/31112),
+  [#31113](https://trac.torproject.org/projects/tor/ticket/31113).
+
+Currently working on phase 2, expecting to wrap up early next year. 
+
 ## Acknowledgements
 This project is made possible thanks to a generous grant from the [NGI Zero PET](https://nlnet.nl/PET/) 
 project, that in turn is made possible with financial support from the 
