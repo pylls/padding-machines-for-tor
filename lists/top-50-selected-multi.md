@@ -17,7 +17,6 @@ top-list, asking two questions to decide if we include the site or not:
   articles on news-site (that's two different classes)
 
 ## Per-site notes
-- youtube.com: first (left-most) clip in categories showed from clean TB
 - wikipedia.org: took 10 links from today's feature article
 - amazon.com: first 10 of Today's deals under $25
 - reddit.com: the first 10 subreddits on the frontpage
@@ -67,3 +66,5 @@ top-list, asking two questions to decide if we include the site or not:
 - thepiratebay.org: 10 top categories listings
 - pixabay.com: 10 popular image categories
 - gfycat.com: top 10 trending gifs
+- healthline.com: 10 first articles
+- dictionary.com: 10 random articles
