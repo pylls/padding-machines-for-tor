@@ -48,7 +48,6 @@ top-list, asking two questions to decide if we include the site or not:
 - theguardian.com: 10 frontpage linked articles
 - slideshare.net: top 10 featured slides
 - sindonews.com: top 10 "TERPOPULER"
-- kompas.com: top 10 newsarticles
 - freepik.com: top 10 Feepik's choice
 - uol.com.br: 10 articles on frontpage
 - aparat.com: 10 top videos
