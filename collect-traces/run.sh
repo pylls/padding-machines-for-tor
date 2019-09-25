@@ -5,7 +5,7 @@ WORKERS=2
 
 # the absolute path to the experiment folder where you put collect.py and
 # visit.py, as well as your list of URLs
-FOLDER=/home/pulls/test/
+FOLDER=/home/pulls/collect-traces/exp/
 
 # filename of your list of URLs to collect from
 LIST=top10.csv
@@ -20,13 +20,13 @@ DATA=data
 GUARD=171.25.193.77
 
 # the number of seconds to collect data for per instance visit
-TIMEOUT=30
+TIMEOUT=60
 
 # There are some more possible settings in collect.py, see there and set them
 # below if you want, typically the defaults should be OK. 
 
 for ((n=0;n<$WORKERS;n++)) do
-    echo docker run -d --rm --cap-add=NET_RAW --cap-add=NET_ADMIN \
+    echo docker run -d --cap-add=NET_RAW --cap-add=NET_ADMIN \
     -v $FOLDER:/home/user/exp wf-collect \
     python3 exp/collect.py -v exp/visit.sh \
     -b /home/user/exp/tor-browser_en-US/ \
