@@ -31,18 +31,15 @@ Edit `Browser/TorBrowser/Data/Tor/torrc` and set any necessary restrictions on
 1. On the machine(s) you want to use for collection, install docker. 
 2. Build the Dockerfile by `cd collect-traces/docker` and `docker build -t
    wf-collect .` (note the dot).
-## Run an experiment
 
-1. We use the `exp` folder as the root.
-2. Copy `tor-browser_en-US` that you modified earlier into `exp`. 
-3. Add a list of websites to visit to `exp`, in this example, `sites.list`.
-4. Run `chmod a+r -R tor-browser_en-US/` and 
-`find tor-browser_en-US/ -type d -print0 | xargs -0 chmod 755` 
-to enable the containers to get necessary access to Tor Browser. 
-5. Create a sub-folder in `exp` for the results data, in our case, `mkdir data`, and
+## Run an experiment
+1. Copy `tor-browser_en-US` that you modified earlier into `exp`. 
+2. From `exp`, run `./set_tb_permissions.sh`. 
+3. Create a sub-folder in `exp` for the results data, in our case, `mkdir data`, and
    give complete access: `chmod 777 data` (lazy, but works).
 
-Edit `run.sh`  and then run it, all done. 
+Edit `run.sh` and then run it from this folder: `./run.sh`. This runs the number
+of docker containers specified.
 
 The docker containers will use the results folder to coordinate trace
 collection. If you're using several machines to run many containers, you have at
