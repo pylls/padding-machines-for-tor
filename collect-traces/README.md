@@ -36,9 +36,9 @@ Edit `Browser/TorBrowser/Data/Tor/torrc` and set any necessary restrictions on
 1. We use the `exp` folder as the root.
 2. Copy `tor-browser_en-US` that you modified earlier into `exp`. 
 3. Add a list of websites to visit to `exp`, in this example, `sites.list`.
-4. Run `chmod a+r -R tor-browser_en-US/` and `find tor-browser_en-US/ -type d
-   -print0 | xargs -0 chmod 755` to enable the containers to get necessary
-   access to Tor Browser. 
+4. Run `chmod a+r -R tor-browser_en-US/` and 
+`find tor-browser_en-US/ -type d -print0 | xargs -0 chmod 755` 
+to enable the containers to get necessary access to Tor Browser. 
 5. Create a sub-folder in `exp` for the results data, in our case, `mkdir data`, and
    give complete access: `chmod 777 data` (lazy, but works).
 
