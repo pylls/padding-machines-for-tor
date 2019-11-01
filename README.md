@@ -36,7 +36,10 @@ Phase 1 is completed. Fun results:
   [#31112](https://trac.torproject.org/projects/tor/ticket/31112),
   [#31113](https://trac.torproject.org/projects/tor/ticket/31113).
 
-Currently working on phase 2, expecting to wrap up early next year. 
+Currently working on phase 2, expecting to wrap up early next year. Ongoing work:
+- [A minimal simulator](https://github.com/pylls/circpad-sim)
+  for padding machines in Tor's circuit padding framework, see [#31788](https://trac.torproject.org/projects/tor/ticket/31788). 
+
 
 ## Acknowledgements
 This project is made possible thanks to a generous grant from the [NGI Zero PET](https://nlnet.nl/PET/) 
