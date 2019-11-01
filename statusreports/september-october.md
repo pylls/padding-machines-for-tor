@@ -16,11 +16,27 @@ During September and October:
   [#31788](https://trac.torproject.org/projects/tor/ticket/31788). Because of
   the joint funding and beyond scope for this project alone, I put the simulator
   in another repository: https://github.com/pylls/circpad-sim . In that repo:
-    - Patches to tor for orchestrating circuitpadding traces from the circuitpadding framework, enabling collection of traces using Tor Browser from its logs.
-    - A python script to convert from Tor logs to a trace format.
-    - A python script for simulating a trace of events at a middle relay.
-    - A python script for computing bandwidth overheads caused by padding.
-    - A sketch of a python script for converting from a trace to typical formats used for website fingerprinting.
-    - An alpha-grade simulator as a test in Tor's circuit padding framework.
-- Started the discussion on upstreaming the simulator and getting feedback from Tor developers (see [#31788](https://trac.torproject.org/projects/tor/ticket/31788) and https://github.com/mikeperry-tor/tor/commits/circpad-sim-squashed).
-- The decision to write a simulator means that we're behind the original schedule a bit, hoping to wrap up phase 2 somewhere around February 2020. 
+    - Patches to tor for orchestrating circuitpadding traces from the
+      circuitpadding framework, enabling collection of traces using Tor Browser
+      from its logs.
+    - A python script to [convert from Tor
+      logs](https://github.com/pylls/circpad-sim/blob/master/circpadtrace/torlog2circpadtrace.py)
+      to a trace format.
+    - A python script for [simulating a
+      trace](https://github.com/pylls/circpad-sim/blob/master/circpadtrace/simrelaytrace.py)
+      from a middle relay.
+    - A python script for [computing bandwidth
+      overheads](https://github.com/pylls/circpad-sim/blob/master/circpadtrace/circpadtrace2overhead.py)
+      caused by padding.
+    - A sketch of a python script for [converting from a
+      trace](https://github.com/pylls/circpad-sim/blob/master/circpadtrace/circpadtrace2wf.py)
+      to typical formats used for website fingerprinting.
+    - [An alpha-grade simulator as a
+      test](https://github.com/pylls/circpad-sim/blob/master/test_circuitpadding_sim.c)
+      in Tor's circuit padding framework.
+- Started the discussion on upstreaming the simulator and getting feedback from
+  Tor developers (see
+  [#31788](https://trac.torproject.org/projects/tor/ticket/31788) and
+  https://github.com/mikeperry-tor/tor/commits/circpad-sim-squashed).
+- The decision to write a simulator means that we're behind the original
+  schedule a bit, hoping to wrap up phase 2 somewhere around February 2020. 
