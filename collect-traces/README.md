@@ -14,18 +14,11 @@ if [ "x$DISPLAY" = "x" ] && [[ "$*" != *--headless* ]]; then
 This makes it possible to run Tor Browser in headless mode without a full X
 install (no more `xvfb`, yay). 
 
-Start Tor Browser, in `about:config`, set:
-
-- `browser.aboutHomeSnippets.updateUrl` to `""`
-- `browser.startup.homepage_override.mstone` to `ignore`
-- `extensions.blocklist.enabled` to `false`
-
-Above are minimal changes according to Mozilla's guide to [stop Firefox from
-making automatic
-connections](https://support.mozilla.org/en-US/kb/how-stop-firefox-making-automatic-connections).
-
 Edit `Browser/TorBrowser/Data/Tor/torrc` and set any necessary restrictions on
-`EntryNodes` and/or `MiddleNodes`, depending on experiment to run. 
+`EntryNodes` and/or `MiddleNodes`, depending on experiment to run. If you're
+using the [circuitpadding simulator](https://github.com/pylls/circpad-sim),
+build the custom `tor` binary, add it to TB at `Browser/TorBrowser/Tor/`, and
+add ``Log [circ]info notice stdout'' to `torrc`.
 
 ## Docker
 1. On the machine(s) you want to use for collection, install docker. 

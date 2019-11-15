@@ -9,6 +9,7 @@ contain in total sites * instances number of pcaps.
 import argparse
 import csv
 import os
+import sys
 import time
 import random
 import shutil
@@ -28,12 +29,6 @@ ap.add_argument("-n", required=True, type=int,
 # this script are assumed to possibly be using the same shared directory
 ap.add_argument("-d", required=True,
     help="(shared) data folder for storing results")
-
-# make sure that the IP address of the guard is that which is hardcoded as the
-# guard in Browser/TorBrowser/Data/Tor/torrc (using EntryNodes fingerprint) of
-# the instance of Tor Browser
-ap.add_argument("-g", required=True, 
-    help="IP address of guard")
 ap.add_argument("-b", required=True, 
     help="folder with Tor Browser")
 
@@ -41,50 +36,34 @@ ap.add_argument("-a", required=False, default=5, type=int,
     help="number of attempts to collect each trace")
 ap.add_argument("-t", required=False, default=60, type=int,
     help="timeout (s) for each TB visit")
-ap.add_argument("-i", required=False, default="eth0",
-    help="network interface to capture from")
-ap.add_argument("-v", required=False, default="./visit.sh",
-    help="location of the visit.sh script")
-
-# SnapLen of 68 bytes for IPv4 packets and 96 bytes for IPv6 packets
-ap.add_argument("-s", required=False, default=100, type=int,
-    help="snaplen to capture")
-
-# with default snaplen 100, expect at least 100 packets, and account for pcap
-# header of 24 bytes: 100x100+24 = 10024
-ap.add_argument("-m", required=False, default=10024, type=int,
-    help="minimum pcap size to accept (bytes)")
+ap.add_argument("-m", required=False, default=100, type=int,
+    help="minimum number of liens in torlog to accept")
 args = vars(ap.parse_args())
 
 RESULTSFMT = "{}-{}.pcap"
-TSHARKFMT = "tshark -i {} -f \"host {} and length > 511\" -s {} -a duration:{} -w {} -F libpcap"
 TBFILE = "start-tor-browser.desktop"
 
-tmpdir = tempfile.mkdtemp()
+tmpdir  = tmpdir = tempfile.mkdtemp()
 
 def main():
     if not os.path.exists(args["d"]):
-        print("data directory {} does not exist".format(args["d"]))
-        return -1
+        sys.exit(f"data directory {args['d']} does not exist")
     if not os.path.exists(args["b"]):
-        print("Tor Browser directory {} does not exist".format(args["b"]))
-        return -1
+        sys.exit(f"Tor Browser directory {args['b']} does not exist")
     if not os.path.isfile(os.path.join(args["b"], TBFILE)):
-        print("Tor Browser directory {} missing {}".format(args["b"], TBFILE))
-        return -1
+        sys.exit(f"Tor Browser directory {args['b']} missing {TBFILE}")
 
     print("reading sites list {}".format(args["l"]))
     sites = get_sites_list()
     print("ok, list has {} sites".format(len(sites)))
 
-    # make a copy of TB, two warmup visits to get consensus and whatnot update
-    # checks done, then use that copy for all future visits 
     tb = make_tb_copy(args["b"])
-    visit("kau.se/en", tb, args["t"])
-    visit("kau.se/en/cs", tb, args["t"])
+    print("two warmup visits for fresh consensus and whatnot update checks")
+    print(f"\t got {len(visit('kau.se/en', tb, args['t']))} log-lines")
+    print(f"\t got {len(visit('kau.se/en/cs', tb, args['t']))} log-lines")
 
-    # random order of samples and sites, ensuring that each instance of this
-    # script won't be working on the same sites-sample pair
+    # random order of samples and sites, making it unlikely that several
+    # instances of this script are be working on the same sites-sample pair
     samples = [i for i in range(args["n"])]
     random.shuffle(samples)
     for n in samples:
@@ -94,43 +73,32 @@ def main():
             if not os.path.isfile(results_file(index, n)):
                 collect(index, site, n, tb)
 
-    # all done, cleanup
+    # cleanup
     shutil.rmtree(tmpdir)
     print("all done, exiting")
 
 def collect(index, site, sample, tb_orig):
-    print("collect index {}, site {}, sample {}".format(index, site, sample))
-    fname = results_file(index, sample)
-
-    for a in range(args["a"]):
+    print(f"attempting to collect site {site}, saving to {index}-{sample}")
+    for _ in range(args["a"]):
         # create fresh TB copy for this visit
         tb = make_tb_copy(tb_orig)
 
-        # start network capture in new thread
-        t = threading.Thread(target=capture, args=(fname,))
-        t.start()
-
-        # sleep briefly, giving the thread a second to start
-        time.sleep(1)
-
-        # visit with TB, blocking
-        visit(site, tb, args["t"])
-
-        # sleep briefly, giving TB time to close
-        time.sleep(1)
+        # visit with TB, blocking, and get stdout (the log)
+        log = visit(site, tb, args["t"])
 
         # cleanup our TB copy
-        cleanup_tb_copy(tb)
+        shutil.rmtree(tb)
 
-        # wait for network capture to finish
-        t.join()
-
-        # if capture was successful and at least of minimum size, done
-        if os.path.isfile(fname) and os.path.getsize(fname) >= args["m"]:
+        # seems someone already saved the file while we visited, exit
+        if os.path.isfile(results_file(index, sample)):
             break
-        
-        # otherwise remove the file, too little data, so other instances can try
-        os.remove(fname)
+
+        # save and break if long enough
+        if len(log) >= args["m"]:
+            with open(results_file(index, sample), 'w') as f:
+                for l in log:
+                    f.write(f"{l}\n")
+            break
 
 def make_tb_copy(src):
     dst = os.path.join(tmpdir, 
@@ -140,16 +108,24 @@ def make_tb_copy(src):
     shutil.copytree(src, dst, ignore=shutil.ignore_patterns('ibus'))
     return dst
 
-def cleanup_tb_copy(c):
-    return shutil.rmtree(c)
-
 def visit(url, tb, timeout):
+    print(f"\t visiting {url} with timeout {timeout}s ...")
     tb = os.path.join(tb, "Browser", "start-tor-browser")
-    subprocess.call(["bash", args["v"], url, tb, str(timeout)])
+    cmd = ["bash", "timeout", "-k", str(5), str(timeout), tb, "--verbose", "--headless", url]
 
-def capture(fname):
-    cmd = TSHARKFMT.format(args["i"], args["g"], args["s"], args["t"], fname)
-    subprocess.call(cmd, shell=True)
+    print(cmd)
+
+    result = subprocess.run(
+        cmd, 
+        capture_output=True, 
+        text=True, 
+        shell=True
+    )
+    
+    if result.returncode != 0:
+        return []
+
+    return result.stdout.split("\n")
 
 def results_file(index, sample):
     return os.path.join(args["d"], RESULTSFMT.format(index, sample))
