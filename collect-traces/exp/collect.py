@@ -40,8 +40,9 @@ ap.add_argument("-m", required=False, default=100, type=int,
     help="minimum number of liens in torlog to accept")
 args = vars(ap.parse_args())
 
-RESULTSFMT = "{}-{}.pcap"
+RESULTSFMT = "{}-{}.log"
 TBFILE = "start-tor-browser.desktop"
+CIRCPAD_EVENT = "circpad_trace_event"
 
 tmpdir  = tmpdir = tempfile.mkdtemp()
 
@@ -109,23 +110,27 @@ def make_tb_copy(src):
     return dst
 
 def visit(url, tb, timeout):
-    print(f"\t visiting {url} with timeout {timeout}s ...")
     tb = os.path.join(tb, "Browser", "start-tor-browser")
-    cmd = ["bash", "timeout", "-k", str(5), str(timeout), tb, "--verbose", "--headless", url]
-
-    print(cmd)
+    cmd = f"timeout -k 5 {str(timeout)} {tb} --verbose --headless {url}"
+    print(f"\t {cmd}")
 
     result = subprocess.run(
-        cmd, 
-        capture_output=True, 
-        text=True, 
+        cmd,
+        capture_output=True,
+        text=True,
         shell=True
     )
     
-    if result.returncode != 0:
-        return []
+    return filter_circpad_lines(result.stdout)
 
-    return result.stdout.split("\n")
+def filter_circpad_lines(stdout):
+    out = []
+    lines = stdout.split("\n")
+    for l in lines:
+        if CIRCPAD_EVENT in l:
+            out.append(l)
+    
+    return out
 
 def results_file(index, sample):
     return os.path.join(args["d"], RESULTSFMT.format(index, sample))
