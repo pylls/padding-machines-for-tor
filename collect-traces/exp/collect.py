@@ -17,6 +17,7 @@ import string
 import subprocess
 import tempfile
 import threading
+import datetime
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-l", required=True,
@@ -45,6 +46,9 @@ TBFILE = "start-tor-browser.desktop"
 CIRCPAD_EVENT = "circpad_trace_event"
 
 tmpdir  = tmpdir = tempfile.mkdtemp()
+
+def now():
+    return datetime.datetime.now()
 
 def main():
     if not os.path.exists(args["d"]):
@@ -86,6 +90,7 @@ def collect(index, site, sample, tb_orig):
 
         # visit with TB, blocking, and get stdout (the log)
         log = visit(site, tb, args["t"])
+        print(f"\t {now()} got {len(log)} circpad events in log")
 
         # cleanup our TB copy
         shutil.rmtree(tb)
@@ -112,7 +117,7 @@ def make_tb_copy(src):
 def visit(url, tb, timeout):
     tb = os.path.join(tb, "Browser", "start-tor-browser")
     cmd = f"timeout -k 5 {str(timeout)} {tb} --verbose --headless {url}"
-    print(f"\t {cmd}")
+    print(f"\t {now()} {cmd}")
 
     result = subprocess.run(
         cmd,
