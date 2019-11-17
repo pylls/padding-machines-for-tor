@@ -80,7 +80,8 @@ def main():
 def get_work():
     try:
         response = requests.get(args["u"], timeout=args["t"])
-        return response.content.decode('UTF-8')
+        if response:
+            return response.content.decode('UTF-8')
     except Timeout:
         return ""
     return ""
@@ -94,7 +95,8 @@ def upload_work(log, site):
             timeout=args["t"],
             data=[('log', '\n'.join(log)), ('site', site)]
         )
-        return response.content.decode('UTF-8')
+        if response:
+            return response.content.decode('UTF-8')
     except Timeout:
         return ""
     return ""
