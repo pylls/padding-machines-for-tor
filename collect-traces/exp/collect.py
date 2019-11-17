@@ -2,88 +2,105 @@
 """Collect Network Traces from Tor Browser
 
 We assume that this script will execute from multiple containers that share the
-exact same script arguments. Hence, the shared results folder (specified as an
-argument) is used to coordinate the multiple instances. The results folder will
-contain in total sites * instances number of pcaps.
+exact same script arguments. The script gets its work and uploads the traces it
+collects to the sever at the specific url.
 """
 import argparse
-import csv
 import os
 import sys
-import time
 import random
 import shutil
 import string
-import subprocess
 import tempfile
-import threading
+import time
 import datetime
+import subprocess
+import signal
+
+import requests
+from requests.exceptions import Timeout
 
 ap = argparse.ArgumentParser()
-ap.add_argument("-l", required=True,
-    help="file with list of sites to visit, one site per line")
-ap.add_argument("-n", required=True, type=int,
-    help="number of samples")
-
-# all data is stored in the below dir and checks are made against the folder if
-# data has already been collected before collecting again, multiple instances of
-# this script are assumed to possibly be using the same shared directory
-ap.add_argument("-d", required=True,
-    help="(shared) data folder for storing results")
 ap.add_argument("-b", required=True, 
     help="folder with Tor Browser")
+ap.add_argument("-u", required=True, 
+    help="the complete URL to the server")
 
 ap.add_argument("-a", required=False, default=5, type=int,
     help="number of attempts to collect each trace")
 ap.add_argument("-t", required=False, default=60, type=int,
     help="timeout (s) for each TB visit")
-ap.add_argument("-m", required=False, default=100, type=int,
+ap.add_argument("-m", required=False, default=10, type=int,
     help="minimum number of liens in torlog to accept")
 args = vars(ap.parse_args())
 
-RESULTSFMT = "{}-{}.log"
 TBFILE = "start-tor-browser.desktop"
 CIRCPAD_EVENT = "circpad_trace_event"
 
 tmpdir  = tmpdir = tempfile.mkdtemp()
 
-def now():
-    return datetime.datetime.now()
-
 def main():
-    if not os.path.exists(args["d"]):
-        sys.exit(f"data directory {args['d']} does not exist")
     if not os.path.exists(args["b"]):
         sys.exit(f"Tor Browser directory {args['b']} does not exist")
     if not os.path.isfile(os.path.join(args["b"], TBFILE)):
         sys.exit(f"Tor Browser directory {args['b']} missing {TBFILE}")
 
-    print("reading sites list {}".format(args["l"]))
-    sites = get_sites_list()
-    print("ok, list has {} sites".format(len(sites)))
+    # on SIGINT remove the temporary folder
+    def signal_handler(sig, frame):
+        shutil.rmtree(tmpdir)
+        sys.exit(0)
+    signal.signal(signal.SIGINT, signal_handler)
 
     tb = make_tb_copy(args["b"])
     print("two warmup visits for fresh consensus and whatnot update checks")
     print(f"\t got {len(visit('kau.se/en', tb, args['t']))} log-lines")
     print(f"\t got {len(visit('kau.se/en/cs', tb, args['t']))} log-lines")
 
-    # random order of samples and sites, making it unlikely that several
-    # instances of this script are be working on the same sites-sample pair
-    samples = [i for i in range(args["n"])]
-    random.shuffle(samples)
-    for n in samples:
-        random.shuffle(sites)
-        for index, site in sites:
-            # only attempt to collect if not already collected
-            if not os.path.isfile(results_file(index, n)):
-                collect(index, site, n, tb)
+    work = ""
+    last_site = ""
+    while True:
+        # either work will be empty or contain the log from collecting below
+        if work == "":
+            # get new work
+            work = get_work()
+        else:
+            # upload work and get new work
+            work = upload_work(work, last_site)
 
-    # cleanup
+        # do any work if we got any, or sleep a bit
+        if work != "":
+            last_site = work
+            work = collect(last_site, tb)
+        else:
+            time.sleep(args["t"])
+
+    # cleanup, if we ever get here somehow
     shutil.rmtree(tmpdir)
-    print("all done, exiting")
 
-def collect(index, site, sample, tb_orig):
-    print(f"attempting to collect site {site}, saving to {index}-{sample}")
+def get_work():
+    try:
+        response = requests.get(args["u"], timeout=args["t"])
+        return response.content.decode('UTF-8')
+    except Timeout:
+        return ""
+    return ""
+
+def upload_work(log, site):
+    print(f"\t {now()} uploading log of len {len(log)}...")
+
+    try:
+        response = requests.post(
+            args["u"],
+            timeout=args["t"],
+            data=[('log', '\n'.join(log)), ('site', site)]
+        )
+        return response.content.decode('UTF-8')
+    except Timeout:
+        return ""
+    return ""
+
+def collect(site, tb_orig):
+    print(f"attempting to collect site {site}")
     for _ in range(args["a"]):
         # create fresh TB copy for this visit
         tb = make_tb_copy(tb_orig)
@@ -95,16 +112,11 @@ def collect(index, site, sample, tb_orig):
         # cleanup our TB copy
         shutil.rmtree(tb)
 
-        # seems someone already saved the file while we visited, exit
-        if os.path.isfile(results_file(index, sample)):
-            break
-
-        # save and break if long enough
+        # done if long enough trace
         if len(log) >= args["m"]:
-            with open(results_file(index, sample), 'w') as f:
-                for l in log:
-                    f.write(f"{l}\n")
-            break
+            return log
+    
+    return ""
 
 def make_tb_copy(src):
     dst = os.path.join(tmpdir, 
@@ -129,6 +141,9 @@ def visit(url, tb, timeout):
     return filter_circpad_lines(result.stdout)
 
 def filter_circpad_lines(stdout):
+    ''' Filters the log for trace events from the circuitpadding 
+    framework, saving space.
+    '''
     out = []
     lines = stdout.split("\n")
     for l in lines:
@@ -137,17 +152,8 @@ def filter_circpad_lines(stdout):
     
     return out
 
-def results_file(index, sample):
-    return os.path.join(args["d"], RESULTSFMT.format(index, sample))
-
-def get_sites_list():
-    # list of tuple (index,site)
-    l = []
-    with open(args["l"]) as f:
-        for line in f:
-            # index each site by its line in the file
-            l.append((len(l), line.rstrip())) 
-    return l
+def now():
+    return datetime.datetime.now()
 
 if __name__ == "__main__":
     main()
