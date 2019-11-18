@@ -1,11 +1,11 @@
 # Orchestrating trace collection
 
 Here we describe how we collect traces using python, shell-scripts, and several
-machines with docker. First download this folder and a fresh Linux Tor Browser
-install from torproject.org.
+machines with docker. Collection is orchestrated by a collection server.
 
 ## Modify Tor Browser
-Edit `Browser/start-tor-browser`, line 12, change it to:
+First download this folder and a fresh Linux Tor Browser install from
+torproject.org. Edit `Browser/start-tor-browser`, line 12, change it to:
 
 ```bash
 if [ "x$DISPLAY" = "x" ] && [[ "$*" != *--headless* ]]; then
@@ -28,18 +28,24 @@ stdout'' to `torrc`.
 
 ## Run an experiment
 1. Copy `tor-browser_en-US` that you modified earlier into `exp`. 
-2. From `exp`, run `./set_tb_permissions.sh`. 
-3. Create a sub-folder in `exp` for the results data, in our case, `mkdir data`, and
-   give complete access: `chmod 777 data` (lazy, but works).
+2. Run `./set_tb_permissions.sh`. 
 
-Edit `run.sh` and then run it from this folder: `./run.sh`. This runs the number
-of docker containers specified.
+Edit `run.sh` and then run it once you've setup a server.
 
-The docker containers will use the results folder to coordinate trace
-collection. If you're using several machines to run many containers, you have at
-least two options:
+## Setup a collection server
+Run `server.py` on a server that can be reached from the docker containers. The
+parameters to the script are largely self-explanatory:
 
-1. Split by samples, that is, have each machine download a subset of the total
-   number of samples then manually merge (and rename) afterwards.
-2. On all machines, mount a remote filesystem and use it to coordinate across
-   containers and machines.
+```
+usage: server.py [-h] -l L -n N -d D [-m M]
+
+optional arguments:
+  -h, --help  show this help message and exit
+  -l L        file with list of sites to visit, one site per line
+  -n N        number of samples
+  -d D        data folder for storing results
+  -m M        minimum number of lines in torlog to accept
+```
+
+All clients will attempt to get work from the server, and on failure, sleeps for
+the specified timeout (default: 60s) before trying again.

@@ -4,7 +4,7 @@
 WORKERS=2
 
 # the absolute path to the experiment folder where you put collect.py and TB
-FOLDER=/home/pylls/collect-traces/exp/
+FOLDER=/home/tobipull/collect/exp/
 
 # the number of seconds to collect data for per instance visit
 TIMEOUT=60
@@ -18,10 +18,10 @@ SERVER=http://example.com:5000
 for ((n=0;n<$WORKERS;n++)) do
     echo docker run -d \
     -v $FOLDER:/home/user/exp wf-collect \
-    python3 \
-    -u /home/user/exp/collect.py \
+    python3 -u \
+    /home/user/exp/collect.py \
     -b /home/user/exp/tor-browser_en-US/ \
-    -u SERVER \
-    -m MIN \
+    -u $SERVER \
+    -m $MIN \
     -t $TIMEOUT
 done
