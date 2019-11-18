@@ -5,6 +5,7 @@ MAINTAINER Tobias Pulls <tobias.pulls@kau.se>
 RUN apt-get update && apt-get install -y \
         dumb-init \
         python3 \
+        python3-requests \
         firefox
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
