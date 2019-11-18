@@ -55,8 +55,8 @@ def handler():
     return get_next_item()
 
 def add_log(log, site):
-    l = log.split("\n")
-    print(f"\tgot log of {len(l)} events for site {site}")
+    log = log.split("\n")
+    print(f"\tgot log of {len(log)} events for site {site}")
     
     # already done?
     if not site in remaining_sites:
