@@ -29,9 +29,9 @@ def main():
     if not os.path.exists(args["d"]):
         sys.exit(f"data directory {args['d']} does not exist")
 
-    print("reading sites list {}".format(args["l"]))
+    print(f"reading sites list {args['l']}")
     starting_sites = get_sites_list()
-    print("ok, list has {} sites".format(len(sites)))
+    print(f"ok, list has {len(starting_sites)} starting sites")
 
     for site in starting_sites:
         sites.append(site)
@@ -46,6 +46,8 @@ def main():
                 if collected_samples[site] >= args["n"]:
                     remaining_sites.remove(site)
     
+    print(f"list has {len(remaining_sites)} remaining sites")
+
     app.run(host="0.0.0.0")
 
 @app.route('/', methods=['GET', 'POST'])

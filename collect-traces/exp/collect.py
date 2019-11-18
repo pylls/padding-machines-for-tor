@@ -130,6 +130,8 @@ def make_tb_copy(src):
 
 def visit(url, tb, timeout):
     tb = os.path.join(tb, "Browser", "start-tor-browser")
+    url = url.replace("'", "\\'")
+    url = url.replace(";", "\;")
     cmd = f"timeout -k 5 {str(timeout)} {tb} --verbose --headless {url}"
     print(f"\t {now()} {cmd}")
 
