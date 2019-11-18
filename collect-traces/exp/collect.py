@@ -18,7 +18,7 @@ import subprocess
 import signal
 
 import requests
-from requests.exceptions import Timeout
+from requests.exceptions import Timeout, ConnectionError, ConnectTimeout
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-b", required=True, 
@@ -82,7 +82,7 @@ def get_work():
         response = requests.get(args["u"], timeout=args["t"])
         if response:
             return response.content.decode('UTF-8')
-    except Timeout:
+    except (Timeout, ConnectionError, ConnectTimeout):
         return ""
     return ""
 
@@ -97,7 +97,7 @@ def upload_work(log, site):
         )
         if response:
             return response.content.decode('UTF-8')
-    except Timeout:
+    except (Timeout, ConnectionError, ConnectTimeout):
         return ""
     return ""
 
