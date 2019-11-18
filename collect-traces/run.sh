@@ -3,8 +3,7 @@
 # the number of docker instances to create
 WORKERS=2
 
-# the absolute path to the experiment folder where you put collect.py and
-# visit.py, as well as your list of URLs
+# the absolute path to the experiment folder where you put collect.py and TB
 FOLDER=/home/pylls/collect-traces/exp/
 
 # the number of seconds to collect data for per instance visit
@@ -17,8 +16,10 @@ MIN=100
 SERVER=http://example.com:5000
 
 for ((n=0;n<$WORKERS;n++)) do
-    echo docker run -d wf-collect \
-    python3 -u exp/collect.py \
+    echo docker run -d \
+    -v $FOLDER:/home/user/exp wf-collect \
+    python3 \
+    -u /home/user/exp/collect.py \
     -b /home/user/exp/tor-browser_en-US/ \
     -u SERVER \
     -m MIN \
