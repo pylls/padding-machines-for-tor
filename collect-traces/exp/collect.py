@@ -30,7 +30,7 @@ ap.add_argument("-a", required=False, default=5, type=int,
     help="number of attempts to collect each trace")
 ap.add_argument("-t", required=False, default=60, type=int,
     help="timeout (s) for each TB visit")
-ap.add_argument("-m", required=False, default=10, type=int,
+ap.add_argument("-m", required=False, default=100, type=int,
     help="minimum number of liens in torlog to accept")
 args = vars(ap.parse_args())
 
