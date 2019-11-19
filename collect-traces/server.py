@@ -89,7 +89,10 @@ def get_sites_list():
     l = []
     with open(args["l"]) as f:
         for line in f:
-            l.append(line.rstrip())
+            site = line.rstrip()
+            if site in l:
+                print(f"warning, list of site has duplicate: {site}")
+            l.append(site)
     return l
 
 def results_file(site):
