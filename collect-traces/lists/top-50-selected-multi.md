@@ -53,11 +53,9 @@ top-list, asking two questions to decide if we include the site or not:
 - sindonews.com: top 10 "TERPOPULER"
 - freepik.com: top 10 Feepik's choice
 - uol.com.br: 10 articles on frontpage
-- aparat.com: 10 top videos
 - walmart.com: top 10 shop categories
 - etsy.com: top 10 personalized jewellery from frontpage
 - wikihow.com: top 10 linked wikis
-- digikala.com: 10 cellphones listed on frontpage
 - craigslist.org: 10 different cities in different US states
 - udemy.com: 10 courses students currently are viewing
 - ladbible.com: top 10 trending
@@ -70,3 +68,5 @@ top-list, asking two questions to decide if we include the site or not:
 - gfycat.com: top 10 trending gifs
 - healthline.com: 10 first articles
 - dictionary.com: 10 random articles
+- suara.com: 10 newsarticles
+- sciencedirect.com: 10 article listing
