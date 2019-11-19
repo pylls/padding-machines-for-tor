@@ -23,8 +23,10 @@ stdout'' to `torrc`.
 
 ## Docker
 1. On the machine(s) you want to use for collection, install docker. 
-2. Build the Dockerfile by `cd collect-traces/docker` and `docker build -t
-   wf-collect .` (note the dot).
+2. Build the Dockerfile in either `docker-debian` or `docker-ubuntu`, depending
+   on what bets fits the enviornment where you built the custom `tor`binary. You
+   build the container by running: `docker build -t wf-collect .` (note the
+   dot).
 
 ## Run an experiment
 1. Copy `tor-browser_en-US` that you modified earlier into `exp`. 
