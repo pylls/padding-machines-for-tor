@@ -57,7 +57,6 @@ top-list, asking two questions to decide if we include the site or not:
 - etsy.com: top 10 personalized jewellery from frontpage
 - wikihow.com: top 10 linked wikis
 - craigslist.org: 10 different cities in different US states
-- udemy.com: 10 courses students currently are viewing
 - ladbible.com: top 10 trending
 - archive.org: top 10 collections at the archive
 - nicovideo.jp: top 10 ranked videos
@@ -70,3 +69,4 @@ top-list, asking two questions to decide if we include the site or not:
 - dictionary.com: 10 random articles
 - suara.com: 10 newsarticles
 - sciencedirect.com: 10 article listing
+- foxnews.com: 10 frontpage articles
