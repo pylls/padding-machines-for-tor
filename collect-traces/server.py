@@ -91,7 +91,7 @@ def get_sites_list():
         for line in f:
             site = line.rstrip()
             if site in l:
-                print(f"warning, list of site has duplicate: {site}")
+                print(f"warning, list of sites has duplicate: {site}")
             l.append(site)
     return l
 
