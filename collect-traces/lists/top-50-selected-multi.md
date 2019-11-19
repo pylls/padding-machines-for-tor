@@ -2,6 +2,9 @@
 This document describes how the top-50-selected-multi.list file was created. Had
 to get to Alexa rank 212. 
 
+## November update
+
+
 ## How created
 Approach for the list is simple but boring. Starting from the top of the Alexa
 top-list, asking two questions to decide if we include the site or not:
