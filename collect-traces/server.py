@@ -15,8 +15,10 @@ ap.add_argument("-n", required=True, type=int,
 ap.add_argument("-d", required=True,
     help="data folder for storing results")
 
-ap.add_argument("-m", required=False, default=100, type=int,
+ap.add_argument("-m", required=False, default=500, type=int,
     help="minimum number of lines in torlog to accept")
+ap.add_argument("-s", required=False, default=-1, type=int,
+    help="stop collecting at this many logs collected, regardless of remaining sites or samples (useful for unmonitored sites)")
 args = vars(ap.parse_args())
 
 RESULTSFMT = "{}-{}.log"
@@ -24,8 +26,11 @@ RESULTSFMT = "{}-{}.log"
 sites = []
 remaining_sites = []
 collected_samples = {}
+total_collected = 0
 
 def main():
+    global total_collected
+
     if not os.path.exists(args["d"]):
         sys.exit(f"data directory {args['d']} does not exist")
 
@@ -40,15 +45,23 @@ def main():
 
         for _ in range(args["n"]):
             if os.path.isfile(results_file(site)):
+                total_collected = total_collected + 1
                 # record the collected sample
                 collected_samples[site] = collected_samples[site] + 1
                 # if we got enough samples, all done
                 if collected_samples[site] >= args["n"]:
                     remaining_sites.remove(site)
     
+    if args["s"] > 0 and total_collected >= args["s"]:
+        sys.exit(f"already done, collected {total_collected} logs")
+
+    if args["s"] > 0:
+        remaining = args['s'] - total_collected
+        print(f"set to collect {args['s']} logs, need {remaining} more")
+    
     print(f"list has {len(remaining_sites)} remaining sites")
 
-    app.run(host="0.0.0.0")
+    app.run(host="0.0.0.0", threaded=False)
 
 @app.route('/', methods=['GET', 'POST'])
 def handler():
@@ -58,14 +71,17 @@ def handler():
 
 def add_log(log, site):
     log = log.split("\n")
-    print(f"\tgot log of {len(log)} events for site {site}")
     
     # already done?
     if not site in remaining_sites:
+        print(f"\t got already done site")
         return
     # log too small to accept?
     if len(log) < args["m"]:
+        print(f"\t got too small log")
         return
+
+    print(f"\tgot log of {len(log)} events for site {site}")
 
     # store the log
     with open(results_file(site), 'w') as f:
