@@ -67,9 +67,12 @@ def main():
 def handler():
     if request.method == 'POST':
         add_log(request.form['log'], request.form['site']) 
-    return get_next_item()
+    next = get_next_item()
+    print(f"\tnext item is {next}")
+    return next
 
 def add_log(log, site):
+    global total_collected
     log = log.split("\n")
     
     # already done?
@@ -92,14 +95,21 @@ def add_log(log, site):
     collected_samples[site] = collected_samples[site] + 1
     if collected_samples[site] >= args["n"]:
         remaining_sites.remove(site)
+        total_collected += 1
 
 def get_next_item():
-    next = ""
+    global total_collected
+
+    # already done?
+    if args["s"] > 0 and total_collected >= args["s"]:
+        return ""
+
+    # got more work?
     if len(remaining_sites) > 0:
         random.shuffle(remaining_sites)
-        next = remaining_sites[0]
-    print(f"\tnext item is {next}")
-    return next
+        return remaining_sites[0]
+
+    return ""
 
 def get_sites_list():
     l = []
