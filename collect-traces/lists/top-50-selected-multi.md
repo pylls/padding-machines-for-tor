@@ -2,8 +2,10 @@
 This document describes how the top-50-selected-multi.list file was created. Had
 to get to Alexa rank 212. 
 
-## November update
-
+## January update
+- replaced two headlines that 404:ed from headlines.yahoo.co.jp
+- replaced four items that was replaced from ebay.com
+- replaced four articles that 404:ed from suara.com
 
 ## How created
 Approach for the list is simple but boring. Starting from the top of the Alexa
