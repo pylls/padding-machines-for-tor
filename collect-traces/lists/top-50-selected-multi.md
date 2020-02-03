@@ -2,6 +2,11 @@
 This document describes how the top-50-selected-multi.list file was created. Had
 to get to Alexa rank 212. 
 
+## February update
+- replaced five headlines from headlines.yahoo.co.jp
+- replaced one link on ebay.com
+  replaced one etsy.com link, shop taking a break
+
 ## January update
 - replaced two headlines that 404:ed from headlines.yahoo.co.jp
 - replaced four items that was replaced from ebay.com
