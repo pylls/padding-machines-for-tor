@@ -32,3 +32,13 @@ simulator.
 We collected the dataset so far in the beginning of January and February to
 allow for comparisons over time. We did minimal changes to the webpages visited
 due to, .e.g., removed content. See list README for details of our changes.
+
+Download links (may change in the future, please reference this repository):
+- https://dart.cse.kau.se/goodenough/goodenough-jan-2020.zip
+- https://dart.cse.kau.se/goodenough/goodenough-feb-2020.zip
+
+```
+$ sha256sum goodenough-*
+37ab85288ebd8c9059b93716e2b21235a06063d252242f01c4274d0605e28131  goodenough-feb-2020.zip
+82123a774275b9b6830a9208591f4e9c7bf759d12ed690db8694362fbca9bcac  goodenough-jan-2020.zip
+```
