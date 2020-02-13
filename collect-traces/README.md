@@ -5,6 +5,9 @@ idea is to run many headless Tor Browser clients in containers that repeatedly
 get work from a collection server. The work consists of a URL to visit. While
 visiting a URL the client records its tor log and uploads it the server.
 
+Note that everything in this folder is of *research quality*, we share this with
+the hope of making it easier for other researchers.
+
 ## Modify Tor Browser
 First download this folder and a fresh Linux Tor Browser install from
 torproject.org. Edit `Browser/start-tor-browser`, line 12, change it to:
