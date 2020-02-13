@@ -1,7 +1,9 @@
-# Orchestrating trace collection
-
-Here we describe how we collect traces using python, shell-scripts, and several
-machines with docker. Collection is orchestrated by a collection server.
+# Howto collect a lot of traces
+Here we describe how we collect traces from Tor Browser in a large scale with
+relative ease. We make basic use of python, shell-scripts, and containers. The
+idea is to run many headless Tor Browser clients in containers that repeatedly
+get work from a collection server. The work consists of a URL to visit. While
+visiting a URL the client records its tor log and uploads it the server.
 
 ## Modify Tor Browser
 First download this folder and a fresh Linux Tor Browser install from
@@ -12,7 +14,7 @@ if [ "x$DISPLAY" = "x" ] && [[ "$*" != *--headless* ]]; then
 ```
 
 This makes it possible to run Tor Browser in headless mode without a full X
-install (no more `xvfb`, yay). 
+install (no more `xvfb`, yay).
 
 Edit `Browser/TorBrowser/Data/Tor/torrc` and set any necessary restrictions,
 e.g., `EntryNodes`, `MiddleNodes` or`UseEntryGuards`, depending on experiment to
@@ -21,25 +23,41 @@ simulator](https://github.com/pylls/circpad-sim), build the custom `tor` binary,
 add it to TB at `Browser/TorBrowser/Tor/`, and add ``Log [circ]info notice
 stdout'' to `torrc`.
 
-## Docker
+When we collected our traces for the goodenough dataset we used the following torrc:
+
+```
+Log [circ]info notice stdout
+UseEntryGuards 0
+```
+
+## Build the docker container
 1. On the machine(s) you want to use for collection, install docker. 
 2. Build the Dockerfile in either `docker-debian` or `docker-ubuntu`, depending
-   on what bets fits the enviornment where you built the custom `tor`binary. You
+   on what fits the environment where you built the custom `tor`binary. You
    build the container by running: `docker build -t wf-collect .` (note the
    dot).
 
-## Run an experiment
+## Starting containers
+On each machine:
 1. Copy `tor-browser_en-US` that you modified earlier into `exp`. 
 2. Run `./set_tb_permissions.sh`. 
 
-Edit `run.sh` and then run it once you've setup a server.
+Edit `run.sh` and then run it.
 
-## Setup a collection server
-Run `server.py` on a server that can be reached from the docker containers. The
-parameters to the script are largely self-explanatory:
+For our experiments we created three zip-files of Tor Browser with different
+security levels/settings set and put them all in the `exp` folder. We then used
+the following command to rotate on each machine:
 
 ```
-usage: server.py [-h] -l L -n N -d D [-m M]
+rm -rf collect/exp/tor-browser_en-US && cd collect/exp/ && unzip tor-browser_en-US-safest.zip && cd ../ && ./set_tb_permissions.sh && ./run.sh
+```
+
+## Setup a collection server
+Run `circpad-server.py` on a server that can be reached from the docker
+containers. The parameters to the script are largely self-explanatory:
+
+```
+usage: circpad-server.py [-h] -l L -n N -d D [-m M] [-s S]
 
 optional arguments:
   -h, --help  show this help message and exit
@@ -47,7 +65,14 @@ optional arguments:
   -n N        number of samples
   -d D        data folder for storing results
   -m M        minimum number of lines in torlog to accept
+  -s S        stop collecting at this many logs collected, regardless of
+              remaining sites or samples (useful for unmonitored sites)
 ```
 
 All clients will attempt to get work from the server, and on failure, sleeps for
-the specified timeout (default: 60s) before trying again.
+the specified timeout (default: 60s) before trying again. For our experiments we
+used 7 machines with 20 containers each talking to a server with a single modest
+core without much trouble. All machines, including the server, were located in
+the same cluster. Running the server on separate physical machines may mean the
+server becomes a too-big bottleneck during collection due to being single
+threaded.
