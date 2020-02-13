@@ -79,3 +79,28 @@ core without much trouble. All machines, including the server, were located in
 the same cluster. Running the server on separate physical machines may mean the
 server becomes a too-big bottleneck during collection due to being single
 threaded.
+
+## Extract traces from the dataset
+Once you've collected your raw dataset the next step is to extract the useful
+logs and get some circpad traces. The `extract` folder contains all you need:
+the `extract.py` script will verify that the logs contain traces from visiting
+the intended websites and structure the dataset as in our goodenough dataset.
+
+```
+usage: extract.py [-h] -i I -o O -t T -l L [--monitored] [--unmonitored]
+                  [-c C] [-s S] [-m M]
+
+optional arguments:
+  -h, --help     show this help message and exit
+  -i I           input folder of logs
+  -o O           output folder for logs
+  -t T           output folder for traces
+  -l L           file with list of sites to visit, one site per line
+  --monitored    extract monitored
+  --unmonitored  extract unmonitored
+  -c C           the number of monitored classes
+  -s S           the number of samples
+  -m M           minimum number of lines in a trace
+```
+
+See the helper `all.sh` script for examples on how to use `extract.py`.
