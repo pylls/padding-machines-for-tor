@@ -21,17 +21,21 @@ Twitter that have a tendency of not treating traffic from Tor nicely (i.e.,
 sporadically blocking access).
 
 The dataset consists of:
-- lists of visited monitored and unmonitored websites
+- complete lists of visited monitored and unmonitored websites
 - logs from Tor Browser
-- traces extracted for the circuit padding simulator
-- fakerelay traces that are simulated from the client traces
+- traces extracted for the [circuit padding simulator](https://github.com/pylls/circpad-sim)
+- fakerelay traces that are [simulated](https://github.com/pylls/circpad-sim/blob/master/simrelaytrace.py) from the client traces
 
 The final traces have all been verified to work fine with the circuit padding
-simulator.
+simulator. There are complete sets of traces for the [three security
+levels/settings of Tor
+Browser](https://tb-manual.torproject.org/security-settings/).
 
-We collected the dataset so far in the beginning of January and February to
-allow for comparisons over time. We did minimal changes to the webpages visited
-due to, .e.g., removed content. See list README for details of our changes.
+We collected the dataset twice so far in the beginning of January and February
+to allow for comparisons over time. We did minimal changes to the webpages
+visited due to, .e.g., removed content. See list README for details of our
+changes. (There's also a dataset from December 2019 but only for some security
+levels, reach out in case you're interested.)
 
 Download links (may change in the future, please reference this repository):
 - https://dart.cse.kau.se/goodenough/goodenough-jan-2020.zip
