@@ -18,9 +18,9 @@ The project has three phases:
 3.  Document, polish the implementation of, and eventually publish the design of
     the most promising padding machines.
 
-All development will take place here in the open. The goal is to finish the
-first phase in time for [PETS 2019](https://www.petsymposium.org/2019/) in
-Stockholm July 16-20, to interact with other researchers and Tor developers.
+Most development will take place here in the open, sharing results early to help
+other researchers in the area. Daily trial-and-error work we spare you from
+though.
 
 ## Project status
 Bi-monthly updates are provided in
@@ -36,10 +36,19 @@ Phase 1 is completed. Fun results:
   [#31112](https://trac.torproject.org/projects/tor/ticket/31112),
   [#31113](https://trac.torproject.org/projects/tor/ticket/31113).
 
-Currently working on phase 2, expecting to wrap up early next year. Ongoing work:
-- [A minimal simulator](https://github.com/pylls/circpad-sim)
-  for padding machines in Tor's circuit padding framework, see [#31788](https://trac.torproject.org/projects/tor/ticket/31788). 
-
+Currently working on phase 2, expecting to wrap up during spring 2020. Fun
+results:
+- [A minimal simulator](https://github.com/pylls/circpad-sim) for padding
+  machines in Tor's circuit padding framework, see
+  [#31788](https://trac.torproject.org/projects/tor/ticket/31788). 
+- [Simple collection tools](collect-traces/) for collecting traces for the circpad simulator.
+- [The goodenough dataset](dataset/) tailored to the circpad simulator and for
+  creating "good enough" machines. 
+- [An evaluation tool](evaluation/once.py) for running the Deep Fingerprinting
+  (DF) attack against a dataset, producing a number of relevant metrics. Based
+  on a port of DF to PyTorch.
+- [An example machine](machines/hello-world.md) designed, implemented,
+  evaluated, and documented.
 
 ## Acknowledgements
 This project is made possible thanks to a generous grant from the [NGI Zero PET](https://nlnet.nl/PET/) 
