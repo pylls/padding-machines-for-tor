@@ -38,8 +38,8 @@ changes. (There's also a dataset from December 2019 but only for some security
 levels, reach out in case you're interested.)
 
 Download links (may change in the future, please reference this repository):
-- https://dart.cse.kau.se/goodenough/goodenough-jan-2020.zip
-- https://dart.cse.kau.se/goodenough/goodenough-feb-2020.zip
+- https://dart.cse.kau.se/goodenough/goodenough-jan-2020.zip 5.4 GiB compressed, 165 GiB extracted
+- https://dart.cse.kau.se/goodenough/goodenough-feb-2020.zip 6.1G compressed, 176 GiB extracted
 
 ```
 $ sha256sum goodenough-*
