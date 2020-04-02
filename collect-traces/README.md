@@ -19,6 +19,12 @@ if [ "x$DISPLAY" = "x" ] && [[ "$*" != *--headless* ]]; then
 This makes it possible to run Tor Browser in headless mode without a full X
 install (no more `xvfb`, yay).
 
+Tor Browser in headless mode will not display the Tor launcher start-up prompt and will hang indefinitely. To skip the prompt, create a preference file in the Firefox profile that ships with TB: `Browser/TorBrowser/Data/Browser/profile.default/user.js`, and add this single line:
+
+```
+user_pref("extensions.torlauncher.prompt_at_startup", false);
+```
+
 Edit `Browser/TorBrowser/Data/Tor/torrc` and set any necessary restrictions,
 e.g., `EntryNodes`, `MiddleNodes` or`UseEntryGuards`, depending on experiment to
 run. If you're using the [circuitpadding
