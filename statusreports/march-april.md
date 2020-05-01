@@ -11,7 +11,7 @@ During March and April:
 - Luckily, before Covid-19 hit, I finished tooling to evolve padding machines
   (not shared yet). While working on other things, my tooling has been running
   on evolving machines. So far it has run a bit over one month walltime,
-  evaluating about 10^5 machines, performing in total about 4*10^18
+  evaluating about 10^5 machines, performing in total about 10^9
   [circpad-sim](https://github.com/pylls/circpad-sim) simulations. Several
   viable machines have emerged with at least two distinct tactics for padding.
   Hoping that manual tuning in May will provide some improvement and that's it
