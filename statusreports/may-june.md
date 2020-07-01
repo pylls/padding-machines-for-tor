@@ -1,7 +1,7 @@
 During May and June:
 - More Covid-19 delay unfortunately but managed to wrap up phase 2 now, please
   see
-  [https://github.com/pylls/padding-machines-for-tor/tree/master/machines/phase2/].
+  [here](https://github.com/pylls/padding-machines-for-tor/tree/master/machines/phase2/).
 - Released three tools that are valuable for evaluating machines. One for
   computing [bandwidth
   overhead](https://github.com/pylls/padding-machines-for-tor/tree/master/machines/phase2/overhead.py),
