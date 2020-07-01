@@ -1,13 +1,15 @@
-The bad news is that it took me longer than expected to transition out of other
-project work so I didn't get as much time as I wanted to in June. The good news
-is that I've just finished "transitioning" out of one project and can start
-working on this close to full-time for a couple of weeks before vacation. After
-vacation I should have time to progress as planned.
+During May and June:
+- More Covid-19 delay unfortunately but managed to wrap up phase 2 now, please
+  see
+  [https://github.com/pylls/padding-machines-for-tor/tree/master/machines/phase2/].
+- Released three tools that are valuable for evaluating machines. One for
+  computing [bandwidth
+  overhead](https://github.com/pylls/padding-machines-for-tor/tree/master/machines/phase2/overhead.py),
+  one for [visualizing
+  traces](https://github.com/pylls/padding-machines-for-tor/tree/master/machines/phase2/visualize.py),
+  and a third for
+  [tweaking](https://github.com/pylls/padding-machines-for-tor/tree/master/machines/phase2/tweak.md)
+  a pair of machines.
 
-In gist, during the first two project months I have:
-
-- Setup this repository,
-- explored a new way of collecting network traces based on --headless Firefox (Tor Browser),
-- gotten access to more than adequate equipment at the department for future
-  experiments, and
-- slowly started wrapping my head around the circuitpadding framework in Tor. 
+The plan is now to fine-tune the machines from phase 2, resulting in 1-2 final
+machines, and then wrapping up the project in time for the next status report.
