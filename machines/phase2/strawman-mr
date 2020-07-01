@@ -1,0 +1,40 @@
+circpad_machine_spec_t *relay = tor_malloc_zero(sizeof(circpad_machine_spec_t));
+
+relay->name = "evolved_relay";  // because lazy
+relay->machine_index = 0;
+relay->target_hopnum = 2;
+relay->is_origin_side = 0;
+relay->allowed_padding_count = 100;
+relay->max_padding_percent = 95;
+circpad_machine_states_init(relay, 2);
+
+relay->states[0].length_dist.type = CIRCPAD_DIST_GEOMETRIC;
+relay->states[0].length_dist.param1 = 9.6;
+relay->states[0].length_dist.param2 = 0.9;
+relay->states[0].start_length = 10;
+relay->states[0].max_length = 1000;
+relay->states[0].iat_dist.type = CIRCPAD_DIST_PARETO;
+relay->states[0].iat_dist.param1 = 5.5;
+relay->states[0].iat_dist.param2 = 7.1;
+relay->states[0].start_length = 10;
+relay->states[0].dist_max_sample_usec = 94722;
+relay->states[0].next_state[CIRCPAD_EVENT_NONPADDING_RECV] = 1;
+relay->states[0].next_state[CIRCPAD_EVENT_PADDING_RECV] = 1;
+relay->states[0].next_state[CIRCPAD_EVENT_LENGTH_COUNT] = 1;
+
+relay->states[1].length_dist.type = CIRCPAD_DIST_LOGISTIC;
+relay->states[1].length_dist.param1 = 4.1;
+relay->states[1].length_dist.param2 = 2.7;
+relay->states[1].start_length = 20;
+relay->states[1].max_length = 693;
+relay->states[1].iat_dist.type = CIRCPAD_DIST_LOGISTIC;
+relay->states[1].iat_dist.param1 = 5.2;
+relay->states[1].iat_dist.param2 = 5.5;
+relay->states[1].dist_added_shift_usec = 0;
+relay->states[1].dist_max_sample_usec = 10000;
+relay->states[1].next_state[CIRCPAD_EVENT_PADDING_SENT] = 1;
+relay->states[1].next_state[CIRCPAD_EVENT_PADDING_RECV] = 0;
+relay->states[1].next_state[CIRCPAD_EVENT_LENGTH_COUNT] = 1;
+
+relay->machine_num = smartlist_len(relay_padding_machines);
+circpad_register_padding_machine(relay, relay_padding_machines);
